@@ -409,7 +409,7 @@ The command lists are rendered as for SSH exec. Then, for each command:
 
 * The device `hostname` must point at the NETCONF port, usually `host:830`. The server opens the SSH subsystem `netconf` (RFC 6242) there and supports base:1.0 and base:1.1 framing.
 * `username`, `password`, `ssh_key` and `ssh_pool_size` work as for SSH exec. The user needs NETCONF access on the device.
-* Each request opens a new SSH connection and a NETCONF session (hello exchange), sends one RPC per command in order, then closes the session and the connection. No connection is reused, because SR OS drops it after `close-session`. `ssh_pool_size` only limits the number of open connections.
+* Each request opens a new SSH connection and a NETCONF session (hello exchange), sends one RPC per command in order, then closes the session and the connection. No connection is reused, because SR OS drops it after `close-session`. `ssh_pool_size` only limits the number of open connections. When all of them are in use, a request fails at once with a `resource_exhausted` error, and the health check marks the device unhealthy. Set `ssh_pool_size` to at least the number of parallel requests you expect, or to `0` for no limit.
 * The hello exchange has a timeout of 30 seconds. Each RPC has a timeout of 2 minutes.
 * The health check opens and closes a NETCONF session. A device whose SSH port answers but whose NETCONF does not is marked unhealthy.
 

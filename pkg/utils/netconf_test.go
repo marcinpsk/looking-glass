@@ -490,6 +490,52 @@ func TestNetconfExecPooled(t *testing.T) {
 	}
 }
 
+// TestNetconfExecPoolExhausted verifies that a request and the health check fail at once with
+// errs.PoolExhausted while another NETCONF session holds the only pool slot.
+func TestNetconfExecPoolExhausted(t *testing.T) {
+	old := netconfTimeout
+	netconfTimeout = 2 * time.Second
+	t.Cleanup(func() { netconfTimeout = old })
+
+	srv := startNetconfServer(t, true, false)
+	spec := netconfTestSpec(t, netconfTestSROSRPC, "md-cli-output-block")
+	ri := &RouterInstance{
+		Config:      netconfTestRouter("nc-exhausted", srv.addr, 1),
+		Router:      netconfMockRouter{spec: spec},
+		HealthCheck: &HealthCheck{Healthy: true},
+	}
+
+	held := make(chan error, 1)
+	go func() {
+		_, err := NetconfExec(ri.Config, spec, []string{"show hang"})
+		held <- err
+	}()
+	pool := getPool(ri.Config)
+	deadline := time.Now().Add(time.Second)
+	for {
+		pool.mu.Lock()
+		open := pool.numOpen
+		pool.mu.Unlock()
+		if open == 1 {
+			break
+		}
+		if time.Now().After(deadline) {
+			t.Fatal("the first request did not take the pool slot")
+		}
+		time.Sleep(5 * time.Millisecond)
+	}
+
+	if _, err := netconfExecWithin(t, 500*time.Millisecond, ri.Config, spec, []string{"show version"}); !errors.Is(err, errs.PoolExhausted) {
+		t.Errorf("second request: err = %v, want errs.PoolExhausted", err)
+	}
+	if err := ri.Healthcheck(); !errors.Is(err, errs.PoolExhausted) || ri.HealthCheck.Healthy {
+		t.Errorf("Healthcheck: err=%v healthy=%v, want errs.PoolExhausted and unhealthy", err, ri.HealthCheck.Healthy)
+	}
+	if err := <-held; !errors.Is(err, errs.ExecFailed) {
+		t.Errorf("held request: err = %v, want errs.ExecFailed after the timeout", err)
+	}
+}
+
 // TestNetconfExecNoHello verifies that a server that never sends its hello
 // fails the request within the timeout and frees the pool slot.
 func TestNetconfExecNoHello(t *testing.T) {
