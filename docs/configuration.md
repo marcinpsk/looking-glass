@@ -51,8 +51,8 @@ devices:
 | `name`      | string | —           | Shown in the picker and CLI. No syntax restrictions.                                                                                           |
 | `type`      | string | —           | Must equal the `name:` field of a loaded router template. Unknown types log an error and the device is skipped (server still starts).          |
 | `location`  | string | `""`        | Free-form site label. Routers sharing a `location` are grouped in the WebUI picker; missing/empty becomes "Other".                             |
-| `hostname`  | string | —           | SSH endpoint. `host[:port]`. No `port` defaults to 22 from `ssh.Dial`. Devices without this are dropped at validation.                          |
-| `username`  | string | —           | SSH login.                                                                                                                                     |
+| `hostname`  | string | —           | SSH endpoint. `host[:port]`. No `port` defaults to 22 from `ssh.Dial`. Devices without this are dropped at validation. For a template with `transport: netconf`, set the NETCONF port, usually `:830`. |
+| `username`  | string | —           | SSH login. For a template with `transport: netconf`, the user needs NETCONF access on the device.                                             |
 | `password`  | string | `""`        | Always added as an SSH auth method. Ignored at handshake time when the router prefers public-key auth.                                         |
 | `ssh_key`   | string | `""`        | Filesystem path to a PEM-encoded private key. Read at every connection. When set, it's appended to the auth methods.                          |
 | `ssh_cert`  | string | `""`        | Filesystem path to an OpenSSH user certificate (`*-cert.pub`) for `ssh_key`. Read at every connection and offered before the plain key. Requires `ssh_key`: without it, the server does not start. A certificate for another key fails the connection with an authentication error. |
@@ -238,6 +238,7 @@ Each component emits events at the levels below. Setting `level: debug` globally
 | `rpc`        | `rpc start` (per handler entry).                                                              | `rpc ok` (INFO per success: op, router, duration, parser kind/status); `rpc failed` (WARN). |
 | `health`     | `healthcheck tick` (per minute) / `healthcheck probe ok` / `healthcheck probe failed` (per router). | State transitions only: `router healthy` (INFO) / `router unhealthy` (WARN). |
 | `ssh`        | `ssh dial start` / `ssh dial ok` / `ssh exec start` / `ssh exec ok` / `ssh client close`.    | `dial failed` / `new session failed` / `command failed` (ERROR).             |
+| `netconf`    | `netconf session open` / `netconf rpc start` / `netconf rpc ok`, and all records of the NETCONF client library. | `netconf subsystem failed` / `netconf hello failed` / `netconf rpc-error` / `netconf rpc failed` / `netconf reply has no output element` (ERROR). |
 | `routers`    | `router bound` per device.                                                                    | `router catalogue built` summary (INFO); `router type not found` (ERROR).    |
 | `yaml`       | —                                                                                             | `router registered` per template; `unknown parser kind` (WARN); load failures (ERROR + exit). |
 | `tpl`        | `tpl render` per rendered command (with the final rendered string).                          | `operation not defined for router` (WARN); `parse failed` / `execute failed` (ERROR). |
@@ -262,6 +263,8 @@ The server uses distinct exit codes for distinct startup failures so the cause i
 |   23 | `pkg/routers/yaml.go::init`         | Embedded template directory unreadable.                |
 |   24 | `pkg/routers/yaml.go::init`         | Embedded template file unreadable.                     |
 |   25 | `pkg/routers/yaml.go::init`         | Embedded template file unparseable.                    |
+|   26 | `pkg/routers/yaml.go::init`         | YAML file in `ROUTER_DIR` has an invalid `transport` or `netconf` block. |
+|   27 | `pkg/routers/yaml.go::init`         | Embedded template file has an invalid `transport` or `netconf` block. |
 
 ## `security.txt` (optional)
 

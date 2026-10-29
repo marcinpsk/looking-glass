@@ -28,6 +28,7 @@ logging:                                                                  # Logg
     source: false                                                         #   add file:line annotations to each record
     components:                                                           #   optional per-component level overrides
         ssh: info                                                         #     ssh: SSH client (publickey/password/keyboard-interactive)
+        netconf: info                                                     #     netconf: NETCONF sessions and RPCs (templates with transport: netconf)
         http: info                                                        #     http: listener / TLS / Sentry / Redis wiring
         httpaccess: info                                                  #     httpaccess: per-request structured access log
         cache: info                                                       #     cache: Redis response cache middleware

@@ -257,7 +257,7 @@ ssh lookingglass@rt 'show configuration'          # denied (no view-configuratio
 
 * `permissions [ network ]` is the JunOS permission flag that grants `ping` and `traceroute`. Don't omit it or both diagnostics will fail even though `allow-commands` lists them.
 * `allow-commands` and `deny-commands` are evaluated as regexes. Anchor with `^` and use word-boundary patterns like `( |$)` to avoid accidentally matching longer commands.
-* If you need RPC-over-NETCONF for other automation, add `permissions [ network admin-control ]` — but that broadens the blast radius. The LG does not use NETCONF; keep it off if the LG is your only consumer for this user.
+* If you need RPC-over-NETCONF for other automation, add `permissions [ network admin-control ]` — but that broadens the blast radius. The bundled templates do not use NETCONF; keep it off if the LG is your only consumer for this user. Only a template with `transport: netconf` (see [router-templates.md § Transport](./router-templates.md#transport)) needs NETCONF access.
 
 ---
 
