@@ -73,8 +73,9 @@ var netconfTimeout = 2 * time.Minute
 // netconfCloseTimeout bounds the close-session RPC.
 const netconfCloseTimeout = 10 * time.Second
 
-// netconfSampleCommand is rendered at load time to check the RPC template.
-const netconfSampleCommand = `show "<&>" 'x'`
+// netconfSampleCommands are rendered at load time to check the RPC template.
+// Two distinct commands reject an RPC that hard-codes one of them.
+var netconfSampleCommands = [2]string{`show "<&>" 'x'`, `show "<&>" 'y'`}
 
 // NetconfSpec describes how a template runs its commands over NETCONF.
 type NetconfSpec struct {
@@ -98,18 +99,20 @@ func NewNetconfSpec(rpc, output string) (*NetconfSpec, error) {
 		return nil, fmt.Errorf("netconf.rpc: %w", err)
 	}
 	spec := &NetconfSpec{RPC: tpl, Output: output}
-	body, err := spec.Render(netconfSampleCommand)
-	if err != nil {
-		return nil, fmt.Errorf("netconf.rpc: %w", err)
-	}
-	if err := checkXML(body); err != nil {
-		return nil, fmt.Errorf("netconf.rpc is not a single well-formed XML element: %w", err)
-	}
-	if !strings.Contains(body, xmlEscape(netconfSampleCommand)) {
-		return nil, errors.New("netconf.rpc does not contain {{.Command}}")
-	}
-	if inCDATA(body, xmlEscape(netconfSampleCommand)) {
-		return nil, errors.New("netconf.rpc puts {{.Command}} inside CDATA, where its XML escapes reach the device as written")
+	for i, cmd := range netconfSampleCommands {
+		body, err := spec.Render(cmd)
+		if err != nil {
+			return nil, fmt.Errorf("netconf.rpc: %w", err)
+		}
+		if err := checkXML(body); err != nil {
+			return nil, fmt.Errorf("netconf.rpc is not a single well-formed XML element: %w", err)
+		}
+		if !strings.Contains(body, xmlEscape(cmd)) || strings.Contains(body, xmlEscape(netconfSampleCommands[1-i])) {
+			return nil, errors.New("netconf.rpc does not use {{.Command}}")
+		}
+		if inCDATA(body, xmlEscape(cmd)) {
+			return nil, errors.New("netconf.rpc puts {{.Command}} inside CDATA, where its XML escapes reach the device as written")
+		}
 	}
 	return spec, nil
 }

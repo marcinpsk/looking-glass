@@ -598,6 +598,7 @@ func TestNewNetconfSpec(t *testing.T) {
 		{"mismatched element", `<command>{{.Command}}</cmd>`, "output", "well-formed"},
 		{"text only", `{{.Command}}`, "output", "no XML element"},
 		{"command unused", `<get-config><source><running/></source></get-config>`, "output", "{{.Command}}"},
+		{"hard-coded sample command", `<command>show &#34;&lt;&amp;&gt;&#34; &#39;x&#39;</command>`, "output", "{{.Command}}"},
 		{"nested elements", `<a><b>{{.Command}}</b><c/></a>`, "output", ""},
 		{"two top-level elements", `<command>{{.Command}}</command><get/>`, "output", "one top-level element"},
 		{"whitespace around the element", "\n  <command>{{.Command}}</command>\n", "output", ""},
