@@ -1,6 +1,7 @@
 package parse
 
 import (
+	"slices"
 	"testing"
 
 	pb "github.com/AS203038/looking-glass/protobuf/lookingglass/v0"
@@ -1182,6 +1183,55 @@ func TestTextFSMParserJuniperBGPSummary(t *testing.T) {
 	}
 	if s.Peers[2].AddressFamily != "inet6.0" {
 		t.Errorf("peer2 afi = %q", s.Peers[2].AddressFamily)
+	}
+}
+
+// juniperBGPSummaryLongUptimeSample has the Junos uptime formats, several families on one peer and a peer in a routing instance.
+const juniperBGPSummaryLongUptimeSample = `Threading mode: BGP I/O
+Default eBGP mode: advertise - reject-always, receive - accept
+Groups: 3 Peers: 3 Down peers: 1
+Table          Tot Paths  Act Paths Suppressed    History Damp State    Pending
+inet.0
+                3314432    1326158          0          0          0          0
+Peer                     AS      InPkt     OutPkt    OutQ   Flaps Last Up/Dwn State|#Active/Received/Accepted/Damped...
+192.0.2.66                5          0          0       0       0 32w6d 9:04:08 Connect
+192.0.2.3             64500    3318074      12206       0      87 3d 20:55:15 Establ
+  inet.0: 386317/1186613/1186600/0
+  inet6.0: 0/265834/0/0
+  bgp.l3vpn.0: 0/6/0/0
+  CUSTOMER-A.inet.0: 0/2/0/0
+2001:db8::3           64500       7956       7977       0      71 2d 13:07:00 Establ
+  inet6.0: 3/40/30/0
+198.51.100.54         64501    1249300       8020       0       0        5:55 Establ
+  CUSTOMER-B.inet.0: 0/1322670/7/0
+`
+
+func TestTextFSMParserJuniperBGPSummaryLongUptime(t *testing.T) {
+	r := TextFSMParser{}.Parse(OpBGPSummary, []byte(juniperBGPSummaryLongUptimeSample),
+		Config{Template: "juniper_junos_show_bgp_summary"})
+	if r.Status != pb.ParseStatus_PARSE_STATUS_OK {
+		t.Fatalf("Status = %v, want OK", r.Status)
+	}
+	s := r.Payload.(*pb.BGPSummaryParsed)
+	type row struct {
+		ip, af, state          string
+		uptime, recv, accepted uint64
+	}
+	want := []row{
+		{"192.0.2.66", "", "connect", 32*7*86400 + 6*86400 + 9*3600 + 4*60 + 8, 0, 0},
+		{"192.0.2.3", "inet.0", "established", 3*86400 + 20*3600 + 55*60 + 15, 1186613, 1186600},
+		{"192.0.2.3", "inet6.0", "established", 3*86400 + 20*3600 + 55*60 + 15, 265834, 0},
+		{"192.0.2.3", "bgp.l3vpn.0", "established", 3*86400 + 20*3600 + 55*60 + 15, 6, 0},
+		{"192.0.2.3", "CUSTOMER-A.inet.0", "established", 3*86400 + 20*3600 + 55*60 + 15, 2, 0},
+		{"2001:db8::3", "inet6.0", "established", 2*86400 + 13*3600 + 7*60, 40, 30},
+		{"198.51.100.54", "CUSTOMER-B.inet.0", "established", 5*60 + 55, 1322670, 7},
+	}
+	var got []row
+	for _, p := range s.Peers {
+		got = append(got, row{p.PeerIp, p.AddressFamily, p.State, p.UptimeSeconds, p.PrefixesReceived, p.PrefixesAccepted})
+	}
+	if !slices.Equal(got, want) {
+		t.Errorf("peers:\n got %+v\nwant %+v", got, want)
 	}
 }
 

@@ -260,13 +260,26 @@ func recUint32List(rec map[string]interface{}, name string) []uint32 {
 	return out
 }
 
-// recAgeSeconds returns the named column parsed as a seconds count.
+// recAgeSeconds returns the named column parsed as a seconds count, see [ageSeconds].
 // Accepts `HH:MM:SS`, compound (`1d02h03m04s`, `1w`) and bare-integer
 // forms. Returns 0 on any unrecognised input.
 func recAgeSeconds(rec map[string]interface{}, name string) uint64 {
-	s := strings.TrimSpace(recString(rec, name))
+	return ageSeconds(strings.TrimSpace(recString(rec, name)))
+}
+
+// ageSeconds parses an age such as "1d2h", "0:01:00", Junos "5:55" (M:SS) or Junos "32w6d 9:04:08".
+func ageSeconds(s string) uint64 {
 	if s == "" {
 		return 0
+	}
+	if i := strings.LastIndexByte(s, ' '); i >= 0 {
+		return ageSeconds(strings.TrimSpace(s[:i])) + ageSeconds(s[i+1:])
+	}
+	if strings.Count(s, ":") == 1 {
+		m, sec, _ := strings.Cut(s, ":")
+		mm, _ := strconv.ParseUint(m, 10, 64)
+		ss, _ := strconv.ParseUint(sec, 10, 64)
+		return mm*60 + ss
 	}
 	if strings.Count(s, ":") == 2 {
 		parts := strings.SplitN(s, ":", 3)

@@ -1,10 +1,10 @@
 Value Filldown local_asn (\d+)
 Value Filldown router_id ([0-9a-fA-F:.]+)
-Value Required peer_ip ([0-9a-fA-F:.]+)
-Value peer_asn (\d+)
-Value uptime (\S+)
-Value state (\S+(?:\s+\(\w+\))?)
-Value address_family (\S+)
+Value Filldown,Required peer_ip ([0-9a-fA-F:.]+)
+Value Filldown peer_asn (\d+)
+Value Filldown uptime (\S+(?:\s+\d+:\d+:\d+)?)
+Value Filldown state (\S+(?:\s+\(\w+\))?)
+Value address_family ([^\s:]+)
 Value prefixes_accepted (\d+)
 Value prefixes_received (\d+)
 
@@ -14,8 +14,13 @@ Start
   ^Table\s+Tot\s+Paths
   ^Peer\s+AS\s+InPkt\s+OutPkt.*$$ -> Peers
 
+# An Establ peer gets one record per family line, other peers one record for the peer line.
 Peers
-  ^${peer_ip}\s+${peer_asn}\s+\d+\s+\d+\s+\d+\s+\d+\s+${uptime}\s+Establ\s*$$
-  ^${peer_ip}\s+${peer_asn}\s+\d+\s+\d+\s+\d+\s+\d+\s+${uptime}\s+${state}\s*$$ -> Record
-  ^\s+${address_family}:\s+${prefixes_accepted}/${prefixes_received}/\d+/\d+\s*$$ -> Record
+  ^${peer_ip}\s+${peer_asn}\s+\d+\s+\d+\s+\d+\s+\d+\s+${uptime}\s+${state}\s*$$ -> Continue
+  ^\S+\s+\d+(\s+\d+){4}\s+.+\s+Establ\s*$$
+  ^\S+\s+\d+(\s+\d+){4}\s+ -> Record
+  ^\s+${address_family}:\s+\d+/${prefixes_received}/${prefixes_accepted}/\d+\s*$$ -> Record
   ^\s*$$
+
+# No record at the end of input: after the last family line only Filldown values are left.
+EOF
