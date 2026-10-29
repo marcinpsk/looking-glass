@@ -33,7 +33,7 @@ devices:
   - name: "rt1.sto1.example"          # required, free text
     type: "frrouting"                 # required, must match a template
     location: "Stockholm, Sweden"     # optional, used to group in WebUI
-    hostname: "10.0.0.1:22"           # required, host[:port]
+    hostname: "10.0.0.1:22"           # required, host:port
     username: "lg"                    # required for SSH login
     password: "secret"                # optional (use ssh_key instead)
     ssh_key:  "/run/secrets/lg-key"   # optional, takes precedence if set
@@ -51,7 +51,7 @@ devices:
 | `name`      | string | —           | Shown in the picker and CLI. No syntax restrictions.                                                                                           |
 | `type`      | string | —           | Must equal the `name:` field of a loaded router template. Unknown types log an error and the device is skipped (server still starts).          |
 | `location`  | string | `""`        | Free-form site label. Routers sharing a `location` are grouped in the WebUI picker; missing/empty becomes "Other".                             |
-| `hostname`  | string | —           | SSH endpoint. `host[:port]`. No `port` defaults to 22 from `ssh.Dial`. Devices without this are dropped at validation. For a template with `transport: netconf`, set the NETCONF port, usually `:830`. |
+| `hostname`  | string | —           | SSH endpoint in `host:port` form. The port is required: use `:22` for SSH exec, or the NETCONF port (usually `:830`) for a template with `transport: netconf`. Devices without this are dropped at validation. |
 | `username`  | string | —           | SSH login. For a template with `transport: netconf`, the user needs NETCONF access on the device.                                             |
 | `password`  | string | `""`        | Always added as an SSH auth method. Ignored at handshake time when the router prefers public-key auth.                                         |
 | `ssh_key`   | string | `""`        | Filesystem path to a PEM-encoded private key. Read at every connection. When set, it's appended to the auth methods.                          |

@@ -64,7 +64,7 @@ type BMPConfig struct {
 type RouterConfig struct {
 	// Name is the human-readable identifier shown in the UI.
 	Name string `yaml:"name"`
-	// Hostname is the SSH target ("host" or "host:port").
+	// Hostname is the SSH target ("host:port"). The port is required.
 	Hostname string `yaml:"hostname"`
 	// Username is the SSH login.
 	Username string `yaml:"username"`

@@ -116,7 +116,7 @@ Practical reference:
 | Expression                | Type     | Value                                                                 | Where it applies                          |
 | ------------------------- | -------- | --------------------------------------------------------------------- | ----------------------------------------- |
 | `{{.Cfg.Name}}`           | string   | Device display name from `config.yaml`                                | Anywhere                                  |
-| `{{.Cfg.Hostname}}`       | string   | SSH endpoint (`host[:port]`)                                          | Anywhere (rare; usually not needed)       |
+| `{{.Cfg.Hostname}}`       | string   | SSH endpoint (`host:port`)                                            | Anywhere (rare; usually not needed)       |
 | `{{.Cfg.Username}}`       | string   | SSH login                                                             | Anywhere (rare)                           |
 | `{{.Cfg.VRF}}`            | string   | Routing-instance label                                                | **Every operation** — see [VRF](#vrf-handling) |
 | `{{.Cfg.Location}}`       | string   | Free-form location                                                    | Anywhere (rare)                           |
