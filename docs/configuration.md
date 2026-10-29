@@ -357,7 +357,7 @@ security.txt:
 In case it saves you time grepping:
 
 * SSH **host-key verification** is currently `InsecureIgnoreHostKey`. There is no `known_hosts` mode yet.
-* SSH **connections are pooled** if `ssh_pool_size` is configured on the device to a value greater than `0`. When configured, idle SSH connections are cached up to that size, checked out exclusively per request, and automatically validated/reestablished if stale.
+* SSH **connections are pooled** if `ssh_pool_size` is configured on the device to a value greater than `0`. When configured, at most that many SSH connections are open at a time. Each request checks out one connection exclusively. Idle connections stay open for the next request and are validated/reestablished if stale.
 * The **health check interval** is hardcoded to 60 seconds (see `pkg/http/grpc/grpc.go:healthcheck`).
 * The **WebUI router-list refresh** is hardcoded to 5 minutes (see `webui/src/lib/stores/routers.ts`).
 * Build-time **`-ldflags "-X .../utils.release=…"`** is the only way to set the version string shown in `GetInfo` / WebUI footer / ETag / Sentry release. The Makefile and Dockerfile both handle this automatically.
