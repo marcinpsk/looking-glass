@@ -642,6 +642,9 @@ func TestNewNetconfSpec(t *testing.T) {
 		{"command only in a processing instruction", `<command><?cmd {{.Command}}?></command>`, "output", "{{.Command}}"},
 		{"command in an attribute and the text", `<command line="{{.Command}}">{{.Command}}</command>`, "output", ""},
 		{"command in the text and a comment", `<command>{{.Command}}<!-- {{.Command}} --></command>`, "output", "comment"},
+		{"XML declaration", `<?xml version="1.0"?><command>{{.Command}}</command>`, "output", "XML declaration"},
+		{"XML declaration in upper case", `<?XML version="1.0"?><command>{{.Command}}</command>`, "output", "XML declaration"},
+		{"other processing instruction", `<?junos-cli x?><command>{{.Command}}</command>`, "output", ""},
 		{"command alias in a comment", `{{$c := .Command}}<command>{{$c}}<!-- {{$c}} --></command>`, "output", "comment"},
 	}
 	for _, tc := range cases {

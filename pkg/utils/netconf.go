@@ -211,6 +211,10 @@ func checkXML(s string) error {
 			if depth == 0 && len(bytes.TrimSpace(t)) > 0 {
 				outsideText = true
 			}
+		case xml.ProcInst:
+			if strings.EqualFold(t.Target, "xml") {
+				return errors.New("an XML declaration, which is not allowed inside <rpc>")
+			}
 		}
 	}
 	if elements == 0 {
