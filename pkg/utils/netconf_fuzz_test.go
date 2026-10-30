@@ -9,7 +9,7 @@ import (
 // FuzzNetconfSpecRender verifies that any command renders a well-formed RPC
 // and that a command of valid XML characters reaches the device unchanged.
 func FuzzNetconfSpecRender(f *testing.F) {
-	spec, err := NewNetconfSpec(`<command format="text">{{.Command}}</command>`, "output")
+	spec, err := NewNetconfSpec(`<command format="text">{{.Command}}</command>`, "output", "")
 	if err != nil {
 		f.Fatal(err)
 	}

@@ -215,7 +215,8 @@ func (s *netconfTestServer) serveNetconf(ch ssh.Channel, stall func()) {
 }
 
 // reply records cmd and builds the reply body. A command that contains
-// "error" gets an rpc-error, "hang" gets no reply and "nooutput" gets <ok/>.
+// "error" gets an rpc-error, "hang" gets no reply, "nooutput" gets <ok/> and
+// "busy" gets the SR OS reply for a command the router stopped.
 func (s *netconfTestServer) reply(cmd string, sros bool) string {
 	s.mu.Lock()
 	s.commands = append(s.commands, cmd)
@@ -230,6 +231,12 @@ func (s *netconfTestServer) reply(cmd string, sros bool) string {
 		return ""
 	case strings.Contains(cmd, "nooutput"):
 		return "<ok/>"
+	case sros && strings.Contains(cmd, "busy"):
+		return `<nokiaoper:results xmlns:nokiaoper="urn:nokia.com:sros:ns:yang:sr:oper-global">` +
+			`<nokiaoper:md-cli-output-block>` + "\nBGP IPv4 Routes\n" + `</nokiaoper:md-cli-output-block>` +
+			`</nokiaoper:results>` +
+			`<nokiaoper:status xmlns:nokiaoper="urn:nokia.com:sros:ns:yang:sr:oper-global">terminated-incomplete</nokiaoper:status>` +
+			`<nokiaoper:error-message xmlns:nokiaoper="urn:nokia.com:sros:ns:yang:sr:oper-global">MINOR: CLI #2005: BGP routing daemon is busy</nokiaoper:error-message>`
 	case sros:
 		return `<nokiaoper:operation-id xmlns:nokiaoper="urn:nokia.com:sros:ns:yang:sr:oper-global">1</nokiaoper:operation-id>` +
 			`<nokiaoper:start-time xmlns:nokiaoper="urn:nokia.com:sros:ns:yang:sr:oper-global">2026-01-01T00:00:00.0Z</nokiaoper:start-time>` +
@@ -316,7 +323,7 @@ func netconfTestRouter(name, addr string, poolSize int) *RouterConfig {
 
 func netconfTestSpec(t *testing.T, rpc, output string) *NetconfSpec {
 	t.Helper()
-	spec, err := NewNetconfSpec(rpc, output)
+	spec, err := NewNetconfSpec(rpc, output, "")
 	if err != nil {
 		t.Fatalf("NewNetconfSpec: %v", err)
 	}
@@ -379,6 +386,26 @@ func TestNetconfExecEscapesCommand(t *testing.T) {
 	_, _, commands := srv.stats()
 	if len(commands) != 1 || commands[0] != cmd {
 		t.Errorf("server saw %q, want %q", commands, cmd)
+	}
+}
+
+// TestNetconfExecCommandError verifies that the text of the configured error
+// element follows the output, as the router CLI shows it.
+func TestNetconfExecCommandError(t *testing.T) {
+	srv := startNetconfServer(t, true, false)
+	spec, err := NewNetconfSpec(netconfTestSROSRPC, "md-cli-output-block", "error-message")
+	if err != nil {
+		t.Fatalf("NewNetconfSpec: %v", err)
+	}
+
+	out, err := NetconfExec(netconfTestRouter("nc-busy", srv.addr, 0), spec,
+		[]string{"show busy", "show version"})
+	if err != nil {
+		t.Fatalf("NetconfExec: %v", err)
+	}
+	want := []string{"\nBGP IPv4 Routes\nMINOR: CLI #2005: BGP routing daemon is busy\n", "\nout: show version\n"}
+	if len(out) != 2 || out[0] != want[0] || out[1] != want[1] {
+		t.Errorf("output = %q, want %q", out, want)
 	}
 }
 
@@ -610,7 +637,7 @@ func TestNewNetconfSpec(t *testing.T) {
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			spec, err := NewNetconfSpec(tc.rpc, tc.output)
+			spec, err := NewNetconfSpec(tc.rpc, tc.output, "")
 			if tc.wantErr == "" {
 				if err != nil || spec == nil {
 					t.Fatalf("err = %v, want nil", err)
@@ -621,6 +648,14 @@ func TestNewNetconfSpec(t *testing.T) {
 				t.Errorf("err = %v, want it to contain %q", err, tc.wantErr)
 			}
 		})
+	}
+}
+
+// TestNewNetconfSpecErrorElement verifies that the error element cannot be the output element.
+func TestNewNetconfSpecErrorElement(t *testing.T) {
+	_, err := NewNetconfSpec(netconfTestSROSRPC, "md-cli-output-block", "md-cli-output-block")
+	if err == nil || !strings.Contains(err.Error(), "netconf.error must name another element") {
+		t.Errorf("err = %v, want the netconf.error check", err)
 	}
 }
 

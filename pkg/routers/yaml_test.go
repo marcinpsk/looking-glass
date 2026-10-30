@@ -589,15 +589,19 @@ func TestYamlTransport(t *testing.T) {
 		body        string
 		wantErr     string
 		wantNetconf bool
+		wantErrElem string
 	}{
-		{"exec default", "name: t\n", "", false},
-		{"exec explicit", "name: t\ntransport: ssh\n", "", false},
-		{"netconf", "name: t\ntransport: netconf\nnetconf:\n  rpc: " + srosRPC + "\n  output: md-cli-output-block\n", "", true},
-		{"unknown transport", "name: t\ntransport: telnet\n", `unknown transport "telnet"`, false},
-		{"netconf without rpc", "name: t\ntransport: netconf\nnetconf:\n  output: output\n", "netconf.rpc is required", false},
-		{"netconf without output", "name: t\ntransport: netconf\nnetconf:\n  rpc: " + srosRPC + "\n", "netconf.output is required", false},
-		{"netconf bad xml", "name: t\ntransport: netconf\nnetconf:\n  rpc: '<command>{{.Command}}</cmd>'\n  output: output\n", "well-formed", false},
-		{"netconf block without transport", "name: t\nnetconf:\n  rpc: " + srosRPC + "\n  output: output\n", "transport: netconf", false},
+		{"exec default", "name: t\n", "", false, ""},
+		{"exec explicit", "name: t\ntransport: ssh\n", "", false, ""},
+		{"netconf", "name: t\ntransport: netconf\nnetconf:\n  rpc: " + srosRPC + "\n  output: md-cli-output-block\n", "", true, ""},
+		{"netconf with error", "name: t\ntransport: netconf\nnetconf:\n  rpc: " + srosRPC + "\n  output: md-cli-output-block\n  error: error-message\n", "", true, "error-message"},
+		{"netconf error is the output", "name: t\ntransport: netconf\nnetconf:\n  rpc: " + srosRPC + "\n  output: output\n  error: output\n", "netconf.error must name another element", false, ""},
+		{"netconf error without transport", "name: t\nnetconf:\n  error: error-message\n", "transport: netconf", false, ""},
+		{"unknown transport", "name: t\ntransport: telnet\n", `unknown transport "telnet"`, false, ""},
+		{"netconf without rpc", "name: t\ntransport: netconf\nnetconf:\n  output: output\n", "netconf.rpc is required", false, ""},
+		{"netconf without output", "name: t\ntransport: netconf\nnetconf:\n  rpc: " + srosRPC + "\n", "netconf.output is required", false, ""},
+		{"netconf bad xml", "name: t\ntransport: netconf\nnetconf:\n  rpc: '<command>{{.Command}}</cmd>'\n  output: output\n", "well-formed", false, ""},
+		{"netconf block without transport", "name: t\nnetconf:\n  rpc: " + srosRPC + "\n  output: output\n", "transport: netconf", false, ""},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -617,6 +621,9 @@ func TestYamlTransport(t *testing.T) {
 			}
 			if got := y.Netconf() != nil; got != tc.wantNetconf {
 				t.Errorf("Netconf() set = %v, want %v", got, tc.wantNetconf)
+			}
+			if tc.wantNetconf && y.Netconf().Error != tc.wantErrElem {
+				t.Errorf("Netconf().Error = %q, want %q", y.Netconf().Error, tc.wantErrElem)
 			}
 		})
 	}

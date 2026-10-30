@@ -83,22 +83,27 @@ type NetconfSpec struct {
 	RPC *template.Template
 	// Output is the local name of the reply elements that hold the command output.
 	Output string
+	// Error is the local name of the reply elements that hold a command error, or empty.
+	Error string
 }
 
 // NewNetconfSpec parses the RPC template and checks that it renders
-// well-formed XML that contains the command.
-func NewNetconfSpec(rpc, output string) (*NetconfSpec, error) {
+// well-formed XML that contains the command. errElem is optional.
+func NewNetconfSpec(rpc, output, errElem string) (*NetconfSpec, error) {
 	if rpc == "" {
 		return nil, errors.New("netconf.rpc is required")
 	}
 	if output == "" {
 		return nil, errors.New("netconf.output is required")
 	}
+	if errElem == output {
+		return nil, errors.New("netconf.error must name another element than netconf.output")
+	}
 	tpl, err := template.New("netconf.rpc").Parse(rpc)
 	if err != nil {
 		return nil, fmt.Errorf("netconf.rpc: %w", err)
 	}
-	spec := &NetconfSpec{RPC: tpl, Output: output}
+	spec := &NetconfSpec{RPC: tpl, Output: output, Error: errElem}
 	for i, cmd := range netconfSampleCommands {
 		body, err := spec.Render(cmd)
 		if err != nil {
@@ -192,17 +197,20 @@ func checkXML(s string) error {
 	return nil
 }
 
-// netconfOutput collects the text of the reply elements named local.
+// netconfOutput collects the text of the reply elements named local, and of
+// those named errLocal when it is set.
 type netconfOutput struct {
-	local string
-	found bool
-	text  strings.Builder
+	local    string
+	errLocal string
+	found    bool
+	text     strings.Builder
+	errText  strings.Builder
 }
 
 // UnmarshalXML walks the <rpc-reply> and keeps the character data inside
-// each element named o.local, at any depth and with any namespace.
+// each element named o.local or o.errLocal, at any depth and with any namespace.
 func (o *netconfOutput) UnmarshalXML(d *xml.Decoder, start xml.StartElement) error {
-	depth, inside := 0, 0
+	depth, inside, insideErr := 0, 0, 0
 	for {
 		tok, err := d.Token()
 		if err != nil {
@@ -215,6 +223,9 @@ func (o *netconfOutput) UnmarshalXML(d *xml.Decoder, start xml.StartElement) err
 				inside = depth
 				o.found = true
 			}
+			if insideErr == 0 && o.errLocal != "" && t.Name.Local == o.errLocal {
+				insideErr = depth
+			}
 		case xml.EndElement:
 			if depth == 0 {
 				return nil
@@ -222,10 +233,16 @@ func (o *netconfOutput) UnmarshalXML(d *xml.Decoder, start xml.StartElement) err
 			if depth == inside {
 				inside = 0
 			}
+			if depth == insideErr {
+				insideErr = 0
+			}
 			depth--
 		case xml.CharData:
 			if inside > 0 {
 				o.text.Write(t)
+			}
+			if insideErr > 0 {
+				o.errText.Write(t)
 			}
 		}
 	}
@@ -287,7 +304,7 @@ func netconfCommand(sess *netconf.Session, router *RouterConfig, spec *NetconfSp
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), netconfTimeout)
 	defer cancel()
-	out := &netconfOutput{local: spec.Output}
+	out := &netconfOutput{local: spec.Output, errLocal: spec.Error}
 	err = sess.Exec(ctx, body, out)
 	var rpcErrs netconf.RPCErrors
 	switch {
@@ -318,7 +335,19 @@ func netconfCommand(sess *netconf.Session, router *RouterConfig, spec *NetconfSp
 		slog.Int("cmd_index", i),
 		slog.Duration("duration", time.Since(rpcStart)),
 		slog.Int("output_bytes", out.text.Len()))
-	return out.text.String(), nil
+	msg := strings.TrimSpace(out.errText.String())
+	if msg == "" {
+		return out.text.String(), nil
+	}
+	netconfLogAt(slog.LevelWarn, "netconf command error", router,
+		slog.Int("cmd_index", i),
+		slog.String("cmd", c),
+		slog.String("error_message", truncate(msg, 512)))
+	text := out.text.String()
+	if text != "" && !strings.HasSuffix(text, "\n") {
+		text += "\n"
+	}
+	return text + msg + "\n", nil
 }
 
 // NetconfExec runs each command as one NETCONF RPC in a new session on a new

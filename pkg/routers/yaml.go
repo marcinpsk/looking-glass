@@ -103,6 +103,8 @@ type Yaml struct {
 			RPC string `yaml:"rpc"`
 			// Output is the local name of the reply elements that hold the command output.
 			Output string `yaml:"output"`
+			// Error is the local name of the reply elements whose text is added to the output as a command error.
+			Error string `yaml:"error"`
 		} `yaml:"netconf"`
 		// Ping holds the ping command sequences, keyed by IP family.
 		Ping struct {
@@ -256,12 +258,12 @@ func (rt *Yaml) compile() error {
 	nc := rt.Template.Netconf
 	switch rt.Template.Transport {
 	case "", transportSSH:
-		if nc.RPC != "" || nc.Output != "" {
+		if nc.RPC != "" || nc.Output != "" || nc.Error != "" {
 			return errors.New("netconf block requires transport: netconf")
 		}
 		return nil
 	case transportNetconf:
-		spec, err := utils.NewNetconfSpec(nc.RPC, nc.Output)
+		spec, err := utils.NewNetconfSpec(nc.RPC, nc.Output, nc.Error)
 		if err != nil {
 			return err
 		}

@@ -46,6 +46,7 @@ transport: ssh                # optional: ssh (default) or netconf, see "Transpo
 netconf:                      # only with transport: netconf
     rpc: <xml>                # RPC body; {{.Command}} is the XML-escaped command
     output: <element>         # local name of the reply elements that hold the output
+    error: <element>          # optional: local name of the reply elements that hold a command error
 
 ping:                         # optional but recommended
     any:                      # IP-family-agnostic; used if family-specific is empty
@@ -388,6 +389,7 @@ transport: netconf
 netconf:
   rpc: '<action xmlns="urn:ietf:params:xml:ns:yang:1"><global-operations xmlns="urn:nokia.com:sros:ns:yang:sr:oper-global"><md-cli-raw-command><md-cli-input-line>{{.Command}}</md-cli-input-line></md-cli-raw-command></global-operations></action>'
   output: md-cli-output-block
+  error: error-message
 bgp:
   summary:
     - show router {{.Cfg.VRF}} bgp summary
@@ -398,12 +400,14 @@ The command lists are rendered as for SSH exec. Then, for each command:
 1. `netconf.rpc` is rendered with `text/template`. `{{.Command}}` is the rendered command. The server XML-escapes it, so do not escape it in the template.
 2. The result is sent as the body of one `<rpc>`.
 3. The text of all reply elements whose local name is `netconf.output` is joined, in document order. Namespaces and prefixes are ignored. This text is the command output. Parsers get it in the same way as SSH exec output.
+4. When `netconf.error` is set and the reply has text in elements with that local name, the text is added after the output on a new line, as the device CLI shows it.
 
 | Key              | Required          | Notes                                                                                       |
 | ---------------- | ----------------- | ------------------------------------------------------------------------------------------- |
 | `transport`      | no                | `ssh` (default) or `netconf`.                                                               |
 | `netconf.rpc`    | with `netconf`    | RPC body as a Go template. Must render exactly one well-formed XML element, with only whitespace around it, and must use `{{.Command}}`, but not inside CDATA. |
 | `netconf.output` | with `netconf`    | Local name of the reply elements that hold the command output, without a prefix.           |
+| `netconf.error`  | no                | Local name of the reply elements that hold an error of a command that ran, without a prefix. Must differ from `netconf.output`. |
 
 ### Connection and sessions
 
@@ -417,6 +421,7 @@ The command lists are rendered as for SSH exec. Then, for each command:
 
 * An `<rpc-error>` reply fails the operation with `errs.ExecFailed`. The `error-tag` and `error-message` are logged on the `netconf` component.
 * A reply without a `netconf.output` element fails with `errs.ExecFailed`. Check the element name.
+* Text in a `netconf.error` element does not fail the operation. It is added after the output and logged as `netconf command error`. SR OS uses this for a command that it stops, for example `MINOR: CLI #2005: ... BGP routing daemon is busy`, with the partial output in `md-cli-output-block`.
 * A timeout or a transport error fails with `errs.ExecFailed`.
 
 ### Examples
@@ -428,6 +433,7 @@ transport: netconf
 netconf:
   rpc: '<action xmlns="urn:ietf:params:xml:ns:yang:1"><global-operations xmlns="urn:nokia.com:sros:ns:yang:sr:oper-global"><md-cli-raw-command><md-cli-input-line>{{.Command}}</md-cli-input-line></md-cli-raw-command></global-operations></action>'
   output: md-cli-output-block
+  error: error-message
 ```
 
 Juniper Junos, text output of a CLI command. Junos does not apply CLI pipes such as `| match` in this RPC, so the reply holds the full output:
