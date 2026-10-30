@@ -19,8 +19,10 @@ Peers
   # A peer with one table can print the table and Active/Received[/Accepted]/Damped on the peer line.
   ^${peer_ip}\s+${peer_asn}\s+\d+\s+\d+\s+\d+\s+\d+\s+${uptime}\s+${state}\s+${address_family}:\s+\d+/${prefixes_received}/(?:${prefixes_accepted}/)?\d+\s*$$ -> Record
   ^${peer_ip}\s+${peer_asn}\s+\d+\s+\d+\s+\d+\s+\d+\s+${uptime}\s+${state}\s*$$ -> Continue
-  ^\S+\s+\d+(\s+\d+){4}\s+.+\s+Establ\s*$$
-  ^\S+\s+\d+(\s+\d+){4}\s+ -> Record
+  ^${peer_ip}\s+${peer_asn}\s+\d+\s+\d+\s+\d+\s+\d+\s+${uptime}\s+Establ\s*$$
+  ^${peer_ip}\s+${peer_asn}\s+\d+\s+\d+\s+\d+\s+\d+\s+${uptime}\s+${state}\s*$$ -> Record
+  # Stop on a peer line in another shape: the Filldown values still hold the previous peer.
+  ^\S+\s+\d+(\s+\d+){4}\s+ -> Error "unknown peer line"
   ^\s+${address_family}:\s+\d+/${prefixes_received}/${prefixes_accepted}/\d+\s*$$ -> Record
   ^\s*$$
 

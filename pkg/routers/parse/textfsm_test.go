@@ -1339,6 +1339,27 @@ func TestTextFSMParserJuniperBGPSummarySameLine(t *testing.T) {
 	}
 }
 
+// TestTextFSMParserJuniperBGPSummaryUnknownPeerLine verifies that a peer line in an unknown shape fails the parse
+// and does not give a record of the previous peer.
+func TestTextFSMParserJuniperBGPSummaryUnknownPeerLine(t *testing.T) {
+	const head = `Peer                     AS      InPkt     OutPkt    OutQ   Flaps Last Up/Dwn State|#Active/Received/Accepted/Damped...
+192.0.2.3             64500       3318      12206       0       0     1:23:45 Establ
+  inet.0: 2/2/2/0
+`
+	for name, line := range map[string]string{
+		"not established": "198.51.100.9+179      64510          0          0       0       0        1:00 Active\n",
+		"established":     "198.51.100.9+179      64510         10         10       0       0        1:00 Establ\n  inet.0: 1/1/1/0\n",
+	} {
+		t.Run(name, func(t *testing.T) {
+			r := TextFSMParser{}.Parse(OpBGPSummary, []byte(head+line),
+				Config{Template: "juniper_junos_show_bgp_summary"})
+			if r.Status != pb.ParseStatus_PARSE_STATUS_PARSE_FAILED {
+				t.Errorf("Status = %v, want PARSE_FAILED (payload %v)", r.Status, r.Payload)
+			}
+		})
+	}
+}
+
 const nokiaBGPSummarySample = `===============================================================================
 BGP Summary
 Legend : D - Dynamic Neighbor
