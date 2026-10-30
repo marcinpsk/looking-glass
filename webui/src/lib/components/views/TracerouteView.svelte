@@ -23,7 +23,7 @@
 		<tbody>
 			{#each tp.hops as hop, i (i)}
 				{@const answered = hop.probes.find((p) => p.ip || p.hostname)}
-				<!-- The first probe can be lost (SR OS MD-CLI): show the address of the first probe that answered. -->
+				<!-- A probe can get no answer, also the first one: show the address of the first probe that answered. -->
 				<tr
 					class="border-t"
 					style="border-color: var(--color-border);"
