@@ -120,9 +120,12 @@ func NewNetconfSpec(rpc, output, errElem string) (*NetconfSpec, error) {
 		if err := checkXML(body); err != nil {
 			return nil, fmt.Errorf("netconf.rpc is not a single well-formed XML element: %w", err)
 		}
-		inText, inCDATA := commandInCharData(body, cmd)
+		inText, inCDATA, inComment := commandPlaces(body, cmd)
 		if inCDATA {
 			return nil, errors.New("netconf.rpc puts {{.Command}} inside CDATA, where its XML escapes reach the device as written")
+		}
+		if inComment {
+			return nil, errors.New("netconf.rpc puts {{.Command}} inside an XML comment, where a -- in the command breaks the XML")
 		}
 		if !inText || strings.Contains(body, xmlEscape(netconfSampleCommands[1-i])) {
 			return nil, errors.New("netconf.rpc does not use {{.Command}} in element text")
@@ -131,26 +134,27 @@ func NewNetconfSpec(rpc, output, errElem string) (*NetconfSpec, error) {
 	return spec, nil
 }
 
-// commandInCharData reports whether cmd occurs in the element text of the
-// well-formed body, and whether its escaped form occurs inside a CDATA section.
-// The decoder returns each CDATA section as its own CharData token and other
-// text unescaped; attributes, comments and processing instructions are other tokens.
-func commandInCharData(body, cmd string) (inText, inCDATA bool) {
+// commandPlaces reports whether cmd occurs in the element text of the
+// well-formed body, and whether its escaped form occurs inside a CDATA section
+// or a comment. The decoder returns each CDATA section as its own CharData
+// token, other text unescaped, and comments as written.
+func commandPlaces(body, cmd string) (inText, inCDATA, inComment bool) {
 	d := xml.NewDecoder(strings.NewReader(body))
 	for {
 		start := d.InputOffset()
 		tok, err := d.RawToken()
 		if err != nil {
-			return inText, inCDATA
+			return inText, inCDATA, inComment
 		}
-		cd, ok := tok.(xml.CharData)
-		if !ok {
-			continue
-		}
-		if strings.HasPrefix(body[start:d.InputOffset()], "<![CDATA[") {
-			inCDATA = inCDATA || strings.Contains(string(cd), xmlEscape(cmd))
-		} else {
-			inText = inText || strings.Contains(string(cd), cmd)
+		switch t := tok.(type) {
+		case xml.CharData:
+			if strings.HasPrefix(body[start:d.InputOffset()], "<![CDATA[") {
+				inCDATA = inCDATA || strings.Contains(string(t), xmlEscape(cmd))
+			} else {
+				inText = inText || strings.Contains(string(t), cmd)
+			}
+		case xml.Comment:
+			inComment = inComment || strings.Contains(string(t), xmlEscape(cmd))
 		}
 	}
 }

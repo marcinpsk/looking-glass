@@ -636,11 +636,13 @@ func TestNewNetconfSpec(t *testing.T) {
 		{"text before the element", `{{.Command}}<command/>`, "output", "text outside"},
 		{"command in CDATA", `<command><![CDATA[{{.Command}}]]></command>`, "output", "CDATA"},
 		{"command alias in CDATA", `{{$c := .Command}}<command><![CDATA[{{$c}}]]></command>`, "output", "CDATA"},
-		{"CDATA only in a comment", `<command>{{.Command}}</command><!-- not <![CDATA[{{.Command}}]]> -->`, "output", ""},
+		{"CDATA only in a comment", `<command>{{.Command}}</command><!-- not <![CDATA[{{.Command}}]]> -->`, "output", "comment"},
 		{"command only in an attribute", `<command line="{{.Command}}"/>`, "output", "{{.Command}}"},
 		{"command only in a comment", `<command><!-- {{.Command}} --></command>`, "output", "{{.Command}}"},
 		{"command only in a processing instruction", `<command><?cmd {{.Command}}?></command>`, "output", "{{.Command}}"},
 		{"command in an attribute and the text", `<command line="{{.Command}}">{{.Command}}</command>`, "output", ""},
+		{"command in the text and a comment", `<command>{{.Command}}<!-- {{.Command}} --></command>`, "output", "comment"},
+		{"command alias in a comment", `{{$c := .Command}}<command>{{$c}}<!-- {{$c}} --></command>`, "output", "comment"},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
