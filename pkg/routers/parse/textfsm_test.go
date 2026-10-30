@@ -1,9 +1,12 @@
 package parse
 
 import (
+	"strings"
+	"sync"
 	"testing"
 
 	pb "github.com/AS203038/looking-glass/protobuf/lookingglass/v0"
+	"google.golang.org/protobuf/proto"
 )
 
 // TestTextFSMParserName verifies the TextFSMParser's name method.
@@ -1183,6 +1186,37 @@ func TestTextFSMParserJuniperBGPSummary(t *testing.T) {
 	if s.Peers[2].AddressFamily != "inet6.0" {
 		t.Errorf("peer2 afi = %q", s.Peers[2].AddressFamily)
 	}
+}
+
+// TestTextFSMParserConcurrent verifies that parallel parses through one cached template give the same result as a serial parse.
+func TestTextFSMParserConcurrent(t *testing.T) {
+	cfg := Config{Template: "juniper_junos_show_bgp_summary"}
+	inputs := []string{juniperBGPSummarySample, strings.ReplaceAll(juniperBGPSummarySample, "10.0.0.", "192.0.2.")}
+	want := make([]Result, len(inputs))
+	for i, in := range inputs {
+		want[i] = TextFSMParser{}.Parse(OpBGPSummary, []byte(in), cfg)
+		s, ok := want[i].Payload.(*pb.BGPSummaryParsed)
+		if want[i].Status != pb.ParseStatus_PARSE_STATUS_OK || !ok || len(s.Peers) != 3 {
+			t.Fatalf("serial input %d: status %v, payload %v, want OK with 3 peers", i, want[i].Status, want[i].Payload)
+		}
+	}
+	if proto.Equal(want[0].Payload, want[1].Payload) {
+		t.Fatal("serial results are equal, want a different result per input")
+	}
+	var wg sync.WaitGroup
+	for g := range 8 {
+		wg.Go(func() {
+			for n := range 50 {
+				i := (g + n) % len(inputs)
+				got := TextFSMParser{}.Parse(OpBGPSummary, []byte(inputs[i]), cfg)
+				if got.Status != want[i].Status || !proto.Equal(got.Payload, want[i].Payload) {
+					t.Errorf("input %d: got %v, want %v", i, got.Payload, want[i].Payload)
+					return
+				}
+			}
+		})
+	}
+	wg.Wait()
 }
 
 const nokiaBGPSummarySample = `===============================================================================
