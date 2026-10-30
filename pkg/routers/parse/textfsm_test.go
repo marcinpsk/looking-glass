@@ -1186,15 +1186,16 @@ func TestTextFSMParserJuniperBGPSummary(t *testing.T) {
 	}
 }
 
-// juniperBGPSummaryLongUptimeSample has the Junos uptime formats, several families on one peer and a peer in a routing instance.
+// juniperBGPSummaryLongUptimeSample has the Junos uptime formats, an idle reason with spaces, several families on one peer and a peer in a routing instance.
 const juniperBGPSummaryLongUptimeSample = `Threading mode: BGP I/O
 Default eBGP mode: advertise - reject-always, receive - accept
-Groups: 3 Peers: 3 Down peers: 1
+Groups: 3 Peers: 4 Down peers: 2
 Table          Tot Paths  Act Paths Suppressed    History Damp State    Pending
 inet.0
                 3314432    1326158          0          0          0          0
 Peer                     AS      InPkt     OutPkt    OutQ   Flaps Last Up/Dwn State|#Active/Received/Accepted/Damped...
 192.0.2.66                5          0          0       0       0 32w6d 9:04:08 Connect
+192.0.2.67            64502          0          0       0       0        1:02 Idle (Removal in progress)
 192.0.2.3             64500    3318074      12206       0      87 3d 20:55:15 Establ
   inet.0: 386317/1186613/1186600/0
   inet6.0: 0/265834/0/0
@@ -1219,6 +1220,7 @@ func TestTextFSMParserJuniperBGPSummaryLongUptime(t *testing.T) {
 	}
 	want := []row{
 		{"192.0.2.66", "", "connect", 32*7*86400 + 6*86400 + 9*3600 + 4*60 + 8, 0, 0},
+		{"192.0.2.67", "", "idle (removal in progress)", 62, 0, 0},
 		{"192.0.2.3", "inet.0", "established", 3*86400 + 20*3600 + 55*60 + 15, 1186613, 1186600},
 		{"192.0.2.3", "inet6.0", "established", 3*86400 + 20*3600 + 55*60 + 15, 265834, 0},
 		{"192.0.2.3", "bgp.l3vpn.0", "established", 3*86400 + 20*3600 + 55*60 + 15, 6, 0},
