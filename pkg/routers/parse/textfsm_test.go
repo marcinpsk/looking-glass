@@ -1303,6 +1303,42 @@ func TestTextFSMParserJuniperBGPSummaryLongUptime(t *testing.T) {
 	}
 }
 
+// juniperBGPSummarySameLineSample has peers that print the table and its counters on the peer line.
+const juniperBGPSummarySameLineSample = `Groups: 2 Peers: 3 Down peers: 0
+Table          Tot Paths  Act Paths Suppressed    History Damp State    Pending
+inet.0                 6          4          0          0          0          0
+Peer                     AS      InPkt     OutPkt    OutQ   Flaps Last Up/Dwn State|#Active/Received/Damped...
+192.0.2.3             64500       3318      12206       0       0     1:23:45 Establ
+  inet.0: 2/2/2/0
+192.168.40.4            200        108        110       0       0     9:00:16 Establ VPN-AB.inet.0: 2/4/0
+192.168.40.5            200        108        110       0       0 1d 9:00:16 Establ inet.0: 1/3/3/0
+`
+
+func TestTextFSMParserJuniperBGPSummarySameLine(t *testing.T) {
+	r := TextFSMParser{}.Parse(OpBGPSummary, []byte(juniperBGPSummarySameLineSample),
+		Config{Template: "juniper_junos_show_bgp_summary"})
+	if r.Status != pb.ParseStatus_PARSE_STATUS_OK {
+		t.Fatalf("Status = %v, want OK", r.Status)
+	}
+	s := r.Payload.(*pb.BGPSummaryParsed)
+	type row struct {
+		ip, af, state          string
+		uptime, recv, accepted uint64
+	}
+	want := []row{
+		{"192.0.2.3", "inet.0", "established", 3600 + 23*60 + 45, 2, 2},
+		{"192.168.40.4", "VPN-AB.inet.0", "established", 9*3600 + 16, 4, 0},
+		{"192.168.40.5", "inet.0", "established", 86400 + 9*3600 + 16, 3, 3},
+	}
+	var got []row
+	for _, p := range s.Peers {
+		got = append(got, row{p.PeerIp, p.AddressFamily, p.State, p.UptimeSeconds, p.PrefixesReceived, p.PrefixesAccepted})
+	}
+	if !slices.Equal(got, want) {
+		t.Errorf("peers:\n got %+v\nwant %+v", got, want)
+	}
+}
+
 const nokiaBGPSummarySample = `===============================================================================
 BGP Summary
 Legend : D - Dynamic Neighbor
