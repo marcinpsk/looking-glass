@@ -159,7 +159,7 @@ func commandInCharData(body, cmd string) (inText, inCDATA bool) {
 // a prefix: netconfOutput compares it with the local name of reply elements.
 func checkLocalName(field, name string) error {
 	var elem struct{ XMLName xml.Name }
-	if err := xml.Unmarshal([]byte("<"+name+"/>"), &elem); err != nil || elem.XMLName.Space != "" || elem.XMLName.Local != name {
+	if err := xml.Unmarshal([]byte("<"+name+"/>"), &elem); err != nil || strings.Contains(name, ":") || elem.XMLName.Local != name {
 		return fmt.Errorf("%s must be an XML local name without a prefix: %q", field, name)
 	}
 	return nil

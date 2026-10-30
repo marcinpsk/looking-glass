@@ -675,6 +675,8 @@ func TestNewNetconfSpecElementNames(t *testing.T) {
 		{"prefixed output", "sros:md-cli-output-block", "", "netconf.output must be an XML local name"},
 		{"output with a space", "md-cli output", "", "netconf.output must be an XML local name"},
 		{"output with markup", "a/><b", "", "netconf.output must be an XML local name"},
+		{"output with a trailing colon", "output:", "", "netconf.output must be an XML local name"},
+		{"output with a leading colon", ":output", "", "netconf.output must be an XML local name"},
 		{"prefixed error", "md-cli-output-block", "sros:error-message", "netconf.error must be an XML local name"},
 		{"error with a space", "md-cli-output-block", "error message", "netconf.error must be an XML local name"},
 	}
