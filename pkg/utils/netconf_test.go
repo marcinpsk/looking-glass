@@ -216,7 +216,8 @@ func (s *netconfTestServer) serveNetconf(ch ssh.Channel, stall func()) {
 
 // reply records cmd and builds the reply body. A command that contains
 // "error" gets an rpc-error, "hang" gets no reply, "nooutput" gets <ok/> and
-// "busy" gets the SR OS reply for a command the router stopped.
+// "busy" gets the SR OS reply for a command the router stopped and "twomessages"
+// gets two error-message elements.
 func (s *netconfTestServer) reply(cmd string, sros bool) string {
 	s.mu.Lock()
 	s.commands = append(s.commands, cmd)
@@ -231,6 +232,8 @@ func (s *netconfTestServer) reply(cmd string, sros bool) string {
 		return ""
 	case strings.Contains(cmd, "nooutput"):
 		return "<ok/>"
+	case sros && strings.Contains(cmd, "twomessages"):
+		return `<results><md-cli-output-block></md-cli-output-block></results><error-message>MINOR: CLI first</error-message><error-message>MINOR: CLI second</error-message>`
 	case sros && strings.Contains(cmd, "busy"):
 		return `<nokiaoper:results xmlns:nokiaoper="urn:nokia.com:sros:ns:yang:sr:oper-global">` +
 			`<nokiaoper:md-cli-output-block>` + "\nBGP IPv4 Routes\n" + `</nokiaoper:md-cli-output-block>` +
@@ -399,12 +402,12 @@ func TestNetconfExecCommandError(t *testing.T) {
 	}
 
 	out, err := NetconfExec(netconfTestRouter("nc-busy", srv.addr, 0), spec,
-		[]string{"show busy", "show version"})
+		[]string{"show busy", "show version", "show twomessages"})
 	if err != nil {
 		t.Fatalf("NetconfExec: %v", err)
 	}
-	want := []string{"\nBGP IPv4 Routes\nMINOR: CLI #2005: BGP routing daemon is busy\n", "\nout: show version\n"}
-	if len(out) != 2 || out[0] != want[0] || out[1] != want[1] {
+	want := []string{"\nBGP IPv4 Routes\nMINOR: CLI #2005: BGP routing daemon is busy\n", "\nout: show version\n", "MINOR: CLI first\nMINOR: CLI second\n"}
+	if len(out) != 3 || out[0] != want[0] || out[1] != want[1] || out[2] != want[2] {
 		t.Errorf("output = %q, want %q", out, want)
 	}
 }

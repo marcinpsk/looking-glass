@@ -225,6 +225,9 @@ func (o *netconfOutput) UnmarshalXML(d *xml.Decoder, start xml.StartElement) err
 			}
 			if insideErr == 0 && o.errLocal != "" && t.Name.Local == o.errLocal {
 				insideErr = depth
+				if o.errText.Len() > 0 {
+					o.errText.WriteByte('\n')
+				}
 			}
 		case xml.EndElement:
 			if depth == 0 {
