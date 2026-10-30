@@ -18,6 +18,8 @@ import (
 
 	"github.com/AS203038/looking-glass/pkg/errs"
 	"golang.org/x/crypto/ssh"
+	"nemith.io/netconf"
+	ncssh "nemith.io/netconf/transport/ssh"
 )
 
 const (
@@ -29,6 +31,8 @@ const (
 	netconfTestSROSRPC = `<action xmlns="urn:ietf:params:xml:ns:yang:1"><global-operations xmlns="urn:nokia.com:sros:ns:yang:sr:oper-global"><md-cli-raw-command><md-cli-input-line>{{.Command}}</md-cli-input-line></md-cli-raw-command></global-operations></action>`
 	// netconfTestJunosRPC is the Junos text command RPC.
 	netconfTestJunosRPC = `<command format="text">{{.Command}}</command>`
+	// netconfTestPartial is the reply body that makes the server send only the start of a reply.
+	netconfTestPartial = "\x00partial"
 )
 
 // netconfTestServer is an in-process SSH server with a "netconf" subsystem.
@@ -44,6 +48,8 @@ type netconfTestServer struct {
 	// stallAfterClose makes the server stop answering on a connection after
 	// close-session, like SR OS, which drops the SSH connection then.
 	stallAfterClose bool
+	// partialClose makes the server send only the start of its close-session reply.
+	partialClose bool
 
 	mu       sync.Mutex
 	conns    int
@@ -194,6 +200,10 @@ func (s *netconfTestServer) serveNetconf(ch ssh.Channel, stall func()) {
 		var body string
 		switch {
 		case rpc.CloseSession != nil:
+			if s.partialClose {
+				s.writePartial(ch, rpc.MessageID)
+				return
+			}
 			s.write(ch, rpc.MessageID, "<ok/>")
 			if s.stallAfterClose {
 				stall()
@@ -210,12 +220,17 @@ func (s *netconfTestServer) serveNetconf(ch ssh.Channel, stall func()) {
 			// Hang: never reply, wait for the client to close the channel.
 			continue
 		}
+		if body == netconfTestPartial {
+			s.writePartial(ch, rpc.MessageID)
+			return
+		}
 		s.write(ch, rpc.MessageID, body)
 	}
 }
 
 // reply records cmd and builds the reply body. A command that contains
-// "error" gets an rpc-error, "hang" gets no reply, "nooutput" gets <ok/> and
+// "error" gets an rpc-error, "hang" gets no reply, "partial" gets only the
+// start of a reply, "nooutput" gets <ok/> and
 // "busy" gets the SR OS reply for a command the router stopped and "twomessages"
 // gets two error-message elements.
 func (s *netconfTestServer) reply(cmd string, sros bool) string {
@@ -230,6 +245,8 @@ func (s *netconfTestServer) reply(cmd string, sros bool) string {
 		return "<rpc-error><error-type>application</error-type><error-tag>invalid-value</error-tag><error-severity>error</error-severity><error-message>MINOR: CLI Invalid command</error-message></rpc-error>"
 	case strings.Contains(cmd, "hang"):
 		return ""
+	case strings.Contains(cmd, "partial"):
+		return netconfTestPartial
 	case strings.Contains(cmd, "nooutput"):
 		return "<ok/>"
 	case sros && strings.Contains(cmd, "twomessages"):
@@ -259,6 +276,18 @@ func (s *netconfTestServer) write(ch ssh.Channel, msgID, body string) {
 		return
 	}
 	io.WriteString(ch, msg+netconfTestEOM)
+}
+
+// writePartial sends the start of a reply and then waits for the client to
+// close the channel. With base:1.1 the start is one complete chunk.
+func (s *netconfTestServer) writePartial(ch ssh.Channel, msgID string) {
+	msg := `<rpc-reply xmlns="urn:ietf:params:xml:ns:netconf:base:1.0" message-id="` + msgID + `"><ok`
+	if s.base11 {
+		fmt.Fprintf(ch, "\n#%d\n%s", len(msg), msg)
+	} else {
+		io.WriteString(ch, msg)
+	}
+	io.Copy(io.Discard, ch)
 }
 
 func (s *netconfTestServer) stats() (conns, sessions int, commands []string) {
@@ -563,6 +592,74 @@ func TestNetconfExecPoolExhausted(t *testing.T) {
 	}
 	if err := <-held; !errors.Is(err, errs.ExecFailed) {
 		t.Errorf("held request: err = %v, want errs.ExecFailed after the timeout", err)
+	}
+}
+
+// TestNetconfExecPartialReply verifies that the RPC timeout also bounds the
+// read of a reply that stops after its start, and frees the pool slot.
+func TestNetconfExecPartialReply(t *testing.T) {
+	old := netconfTimeout
+	netconfTimeout = 300 * time.Millisecond
+	t.Cleanup(func() { netconfTimeout = old })
+
+	srv := startNetconfServer(t, true, false)
+	spec := netconfTestSpec(t, netconfTestSROSRPC, "md-cli-output-block")
+	router := netconfTestRouter("nc-partial", srv.addr, 1)
+
+	for i := range 2 {
+		if _, err := netconfExecWithin(t, 10*time.Second, router, spec, []string{"show partial"}); !errors.Is(err, errs.ExecFailed) {
+			t.Errorf("NetconfExec %d: err = %v, want errs.ExecFailed (not a held pool slot)", i, err)
+		}
+	}
+	if _, _, commands := srv.stats(); len(commands) != 2 {
+		t.Errorf("server got commands %q, want the partial reply twice (not a setup timeout)", commands)
+	}
+}
+
+// TestNetconfCommandAfterExpiredDeadline verifies that no RPC is sent after a
+// deadline closed the client, even when the RPC before it succeeded.
+func TestNetconfCommandAfterExpiredDeadline(t *testing.T) {
+	srv := startNetconfServer(t, true, false)
+	spec := netconfTestSpec(t, netconfTestSROSRPC, "md-cli-output-block")
+	router := netconfTestRouter("nc-expired", srv.addr, 1)
+
+	_, err := withSSHClient(router, 1, false, func(client *ssh.Client) ([]string, error) {
+		tr, err := ncssh.NewTransport(client)
+		if err != nil {
+			return nil, err
+		}
+		sess, err := netconf.NewSession(tr)
+		if err != nil {
+			return nil, err
+		}
+		defer client.Close()
+		dl := &netconfDeadlines{client: client}
+		dl.expired.Store(true)
+		_, err = netconfCommand(dl, sess, router, spec, 0, "show version")
+		return nil, err
+	})
+	if !errors.Is(err, errs.ExecFailed) {
+		t.Errorf("err = %v, want errs.ExecFailed", err)
+	}
+	if _, _, commands := srv.stats(); len(commands) != 0 {
+		t.Errorf("server got commands %q after the deadline, want none", commands)
+	}
+}
+
+// TestNetconfExecPartialCloseReply verifies that the close-session timeout also
+// bounds the read of a close-session reply that stops after its start.
+func TestNetconfExecPartialCloseReply(t *testing.T) {
+	old := netconfCloseTimeout
+	netconfCloseTimeout = 300 * time.Millisecond
+	t.Cleanup(func() { netconfCloseTimeout = old })
+
+	srv := startNetconfTestServer(t, &netconfTestServer{base11: true, partialClose: true})
+	spec := netconfTestSpec(t, netconfTestSROSRPC, "md-cli-output-block")
+	router := netconfTestRouter("nc-partialclose", srv.addr, 1)
+
+	out, err := netconfExecWithin(t, 10*time.Second, router, spec, []string{"show version"})
+	if err != nil || len(out) != 1 {
+		t.Errorf("NetconfExec: out=%q err=%v, want the output (a failed close is only logged)", out, err)
 	}
 }
 

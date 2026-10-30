@@ -10,6 +10,7 @@ import (
 	"log/slog"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"text/template"
 	"time"
 
@@ -71,7 +72,7 @@ func netconfLogAt(lvl slog.Level, msg string, router *RouterConfig, extra ...slo
 var netconfTimeout = 2 * time.Minute
 
 // netconfCloseTimeout bounds the close-session RPC.
-const netconfCloseTimeout = 10 * time.Second
+var netconfCloseTimeout = 10 * time.Second
 
 // netconfSampleCommands are rendered at load time to check the RPC template.
 // Two distinct commands reject an RPC that hard-codes one of them.
@@ -287,16 +288,17 @@ func (o *netconfOutput) UnmarshalXML(d *xml.Decoder, start xml.StartElement) err
 // command in order and closes the session.
 func netconfOnClient(client *ssh.Client, router *RouterConfig, spec *NetconfSpec, cmd []string) ([]string, error) {
 	start := time.Now()
-	// The subsystem request and the hello have no context: closing the client ends a stalled setup.
-	setup := time.AfterFunc(netconfTimeout, func() { client.Close() })
+	dl := &netconfDeadlines{client: client}
+	// The subsystem request and the hello have no context.
+	_, setupDone := dl.start(netconfTimeout)
 	tr, err := ncssh.NewTransport(client)
 	if err != nil {
-		setup.Stop()
+		setupDone()
 		netconfLogAt(slog.LevelError, "netconf subsystem failed", router, slog.Any("err", err))
 		return nil, errs.ExecFailed
 	}
 	sess, err := netconf.NewSession(&onceCloseTransport{Transport: tr}, netconf.WithLogger(netconfLibLog))
-	setup.Stop()
+	setupDone()
 	if err != nil {
 		netconfLogAt(slog.LevelError, "netconf hello failed", router, slog.Any("err", err))
 		return nil, errs.ExecFailed
@@ -305,8 +307,14 @@ func netconfOnClient(client *ssh.Client, router *RouterConfig, spec *NetconfSpec
 		slog.Uint64("session_id", sess.SessionID()),
 		slog.Duration("duration", time.Since(start)))
 	defer func() {
-		ctx, cancel := context.WithTimeout(context.Background(), netconfCloseTimeout)
-		defer cancel()
+		ctx, done := dl.start(netconfCloseTimeout)
+		defer done()
+		if dl.expired.Load() {
+			// The library skips a send with a canceled context: a write to the closed client races its transport close.
+			var cancel context.CancelFunc
+			ctx, cancel = context.WithCancel(ctx)
+			cancel()
+		}
 		if err := sess.Close(ctx); err != nil {
 			netconfLogAt(slog.LevelDebug, "netconf session close failed", router, slog.Any("err", err))
 		}
@@ -314,7 +322,7 @@ func netconfOnClient(client *ssh.Client, router *RouterConfig, spec *NetconfSpec
 
 	ret := make([]string, len(cmd))
 	for i, c := range cmd {
-		out, err := netconfCommand(sess, router, spec, i, c)
+		out, err := netconfCommand(dl, sess, router, spec, i, c)
 		if err != nil {
 			return nil, err
 		}
@@ -323,8 +331,41 @@ func netconfOnClient(client *ssh.Client, router *RouterConfig, spec *NetconfSpec
 	return ret, nil
 }
 
+// netconfDeadlines closes client when a deadline ends. The library reads the
+// rest of a reply without its context, so only a closed client ends a stalled reply.
+type netconfDeadlines struct {
+	client *ssh.Client
+	// expired is set when a deadline closed the client.
+	expired atomic.Bool
+}
+
+// start returns a context that ends after d. Call done once to stop the
+// deadline; when the deadline ended, done waits until the client is closed.
+func (n *netconfDeadlines) start(d time.Duration) (ctx context.Context, done func()) {
+	ctx, cancel := context.WithTimeout(context.Background(), d)
+	closed := make(chan struct{})
+	stop := context.AfterFunc(ctx, func() {
+		n.expired.Store(true)
+		n.client.Close()
+		close(closed)
+	})
+	return ctx, func() {
+		if !stop() {
+			<-closed
+		}
+		cancel()
+	}
+}
+
 // netconfCommand runs one command and returns the text of its output elements.
-func netconfCommand(sess *netconf.Session, router *RouterConfig, spec *NetconfSpec, i int, c string) (string, error) {
+func netconfCommand(dl *netconfDeadlines, sess *netconf.Session, router *RouterConfig, spec *NetconfSpec, i int, c string) (string, error) {
+	// An RPC can succeed while its deadline closes the client: a write now would race the transport close.
+	if dl.expired.Load() {
+		netconfLogAt(slog.LevelError, "netconf client closed by an earlier deadline", router,
+			slog.Int("cmd_index", i),
+			slog.String("cmd", c))
+		return "", errs.ExecFailed
+	}
 	netconfLogAt(slog.LevelDebug, "netconf rpc start", router,
 		slog.Int("cmd_index", i),
 		slog.String("cmd", c))
@@ -337,8 +378,8 @@ func netconfCommand(sess *netconf.Session, router *RouterConfig, spec *NetconfSp
 			slog.Any("err", err))
 		return "", errs.ExecFailed
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), netconfTimeout)
-	defer cancel()
+	ctx, done := dl.start(netconfTimeout)
+	defer done()
 	out := &netconfOutput{local: spec.Output, errLocal: spec.Error}
 	err = sess.Exec(ctx, body, out)
 	var rpcErrs netconf.RPCErrors
