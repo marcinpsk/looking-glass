@@ -600,6 +600,8 @@ func TestYamlTransport(t *testing.T) {
 		{"unknown transport", "name: t\ntransport: telnet\n", `unknown transport "telnet"`, false, ""},
 		{"netconf without rpc", "name: t\ntransport: netconf\nnetconf:\n  output: output\n", "netconf.rpc is required", false, ""},
 		{"netconf without output", "name: t\ntransport: netconf\nnetconf:\n  rpc: " + srosRPC + "\n", "netconf.output is required", false, ""},
+		{"netconf prefixed output", "name: t\ntransport: netconf\nnetconf:\n  rpc: " + srosRPC + "\n  output: sros:md-cli-output-block\n", "netconf.output must be an XML local name", false, ""},
+		{"netconf error with a space", "name: t\ntransport: netconf\nnetconf:\n  rpc: " + srosRPC + "\n  output: md-cli-output-block\n  error: error message\n", "netconf.error must be an XML local name", false, ""},
 		{"netconf bad xml", "name: t\ntransport: netconf\nnetconf:\n  rpc: '<command>{{.Command}}</cmd>'\n  output: output\n", "well-formed", false, ""},
 		{"netconf block without transport", "name: t\nnetconf:\n  rpc: " + srosRPC + "\n  output: output\n", "transport: netconf", false, ""},
 	}

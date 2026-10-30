@@ -405,7 +405,7 @@ The command lists are rendered as for SSH exec. Then, for each command:
 | Key              | Required          | Notes                                                                                       |
 | ---------------- | ----------------- | ------------------------------------------------------------------------------------------- |
 | `transport`      | no                | `ssh` (default) or `netconf`.                                                               |
-| `netconf.rpc`    | with `netconf`    | RPC body as a Go template. Must render exactly one well-formed XML element, with only whitespace around it, and must use `{{.Command}}`, but not inside CDATA. |
+| `netconf.rpc`    | with `netconf`    | RPC body as a Go template. Must render exactly one well-formed XML element, with only whitespace around it, and must use `{{.Command}}` in element text, not in an attribute, a comment or CDATA. |
 | `netconf.output` | with `netconf`    | Local name of the reply elements that hold the command output, without a prefix.           |
 | `netconf.error`  | no                | Local name of the reply elements that hold an error of a command that ran, without a prefix. Must differ from `netconf.output`. |
 

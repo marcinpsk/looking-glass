@@ -96,6 +96,14 @@ func NewNetconfSpec(rpc, output, errElem string) (*NetconfSpec, error) {
 	if output == "" {
 		return nil, errors.New("netconf.output is required")
 	}
+	if err := checkLocalName("netconf.output", output); err != nil {
+		return nil, err
+	}
+	if errElem != "" {
+		if err := checkLocalName("netconf.error", errElem); err != nil {
+			return nil, err
+		}
+	}
 	if errElem == output {
 		return nil, errors.New("netconf.error must name another element than netconf.output")
 	}
@@ -112,33 +120,49 @@ func NewNetconfSpec(rpc, output, errElem string) (*NetconfSpec, error) {
 		if err := checkXML(body); err != nil {
 			return nil, fmt.Errorf("netconf.rpc is not a single well-formed XML element: %w", err)
 		}
-		if !strings.Contains(body, xmlEscape(cmd)) || strings.Contains(body, xmlEscape(netconfSampleCommands[1-i])) {
-			return nil, errors.New("netconf.rpc does not use {{.Command}}")
-		}
-		if inCDATA(body, xmlEscape(cmd)) {
+		inText, inCDATA := commandInCharData(body, cmd)
+		if inCDATA {
 			return nil, errors.New("netconf.rpc puts {{.Command}} inside CDATA, where its XML escapes reach the device as written")
+		}
+		if !inText || strings.Contains(body, xmlEscape(netconfSampleCommands[1-i])) {
+			return nil, errors.New("netconf.rpc does not use {{.Command}} in element text")
 		}
 	}
 	return spec, nil
 }
 
-// inCDATA reports whether needle occurs inside a CDATA section of the
-// well-formed body. The decoder returns each CDATA section as its own
-// CharData token and comments as Comment tokens.
-func inCDATA(body, needle string) bool {
+// commandInCharData reports whether cmd occurs in the element text of the
+// well-formed body, and whether its escaped form occurs inside a CDATA section.
+// The decoder returns each CDATA section as its own CharData token and other
+// text unescaped; attributes, comments and processing instructions are other tokens.
+func commandInCharData(body, cmd string) (inText, inCDATA bool) {
 	d := xml.NewDecoder(strings.NewReader(body))
 	for {
 		start := d.InputOffset()
 		tok, err := d.RawToken()
 		if err != nil {
-			return false
+			return inText, inCDATA
 		}
-		if cd, ok := tok.(xml.CharData); ok &&
-			strings.HasPrefix(body[start:d.InputOffset()], "<![CDATA[") &&
-			strings.Contains(string(cd), needle) {
-			return true
+		cd, ok := tok.(xml.CharData)
+		if !ok {
+			continue
+		}
+		if strings.HasPrefix(body[start:d.InputOffset()], "<![CDATA[") {
+			inCDATA = inCDATA || strings.Contains(string(cd), xmlEscape(cmd))
+		} else {
+			inText = inText || strings.Contains(string(cd), cmd)
 		}
 	}
+}
+
+// checkLocalName reports an error when name is not an XML local name without
+// a prefix: netconfOutput compares it with the local name of reply elements.
+func checkLocalName(field, name string) error {
+	var elem struct{ XMLName xml.Name }
+	if err := xml.Unmarshal([]byte("<"+name+"/>"), &elem); err != nil || elem.XMLName.Space != "" || elem.XMLName.Local != name {
+		return fmt.Errorf("%s must be an XML local name without a prefix: %q", field, name)
+	}
+	return nil
 }
 
 // Render returns the RPC body for cmd. The command is XML-escaped before it

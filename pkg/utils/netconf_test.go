@@ -637,6 +637,10 @@ func TestNewNetconfSpec(t *testing.T) {
 		{"command in CDATA", `<command><![CDATA[{{.Command}}]]></command>`, "output", "CDATA"},
 		{"command alias in CDATA", `{{$c := .Command}}<command><![CDATA[{{$c}}]]></command>`, "output", "CDATA"},
 		{"CDATA only in a comment", `<command>{{.Command}}</command><!-- not <![CDATA[{{.Command}}]]> -->`, "output", ""},
+		{"command only in an attribute", `<command line="{{.Command}}"/>`, "output", "{{.Command}}"},
+		{"command only in a comment", `<command><!-- {{.Command}} --></command>`, "output", "{{.Command}}"},
+		{"command only in a processing instruction", `<command><?cmd {{.Command}}?></command>`, "output", "{{.Command}}"},
+		{"command in an attribute and the text", `<command line="{{.Command}}">{{.Command}}</command>`, "output", ""},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -659,6 +663,34 @@ func TestNewNetconfSpecErrorElement(t *testing.T) {
 	_, err := NewNetconfSpec(netconfTestSROSRPC, "md-cli-output-block", "md-cli-output-block")
 	if err == nil || !strings.Contains(err.Error(), "netconf.error must name another element") {
 		t.Errorf("err = %v, want the netconf.error check", err)
+	}
+}
+
+// TestNewNetconfSpecElementNames verifies that the output and error elements are XML local names.
+func TestNewNetconfSpecElementNames(t *testing.T) {
+	cases := []struct {
+		name, output, errElem, wantErr string
+	}{
+		{"names", "md-cli-output-block", "error-message", ""},
+		{"prefixed output", "sros:md-cli-output-block", "", "netconf.output must be an XML local name"},
+		{"output with a space", "md-cli output", "", "netconf.output must be an XML local name"},
+		{"output with markup", "a/><b", "", "netconf.output must be an XML local name"},
+		{"prefixed error", "md-cli-output-block", "sros:error-message", "netconf.error must be an XML local name"},
+		{"error with a space", "md-cli-output-block", "error message", "netconf.error must be an XML local name"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			_, err := NewNetconfSpec(netconfTestSROSRPC, tc.output, tc.errElem)
+			if tc.wantErr == "" {
+				if err != nil {
+					t.Fatalf("err = %v, want nil", err)
+				}
+				return
+			}
+			if err == nil || !strings.Contains(err.Error(), tc.wantErr) {
+				t.Errorf("err = %v, want it to contain %q", err, tc.wantErr)
+			}
+		})
 	}
 }
 
