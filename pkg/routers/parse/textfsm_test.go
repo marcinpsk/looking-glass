@@ -1,7 +1,9 @@
 package parse
 
 import (
+	"fmt"
 	"slices"
+	"strings"
 	"testing"
 
 	pb "github.com/AS203038/looking-glass/protobuf/lookingglass/v0"
@@ -204,6 +206,70 @@ const juniperTracerouteSample = `traceroute to 1.1.1.1 (1.1.1.1), 30 hops max, 4
  3  * * *
  4  one.one.one.one (1.1.1.1)  8.123 ms  8.234 ms  8.345 ms
 `
+
+// juniperTracerouteLostProbeSamples have lost probes next to answers, IPv6 hops and output without the header line.
+var juniperTracerouteLostProbeSamples = []struct {
+	name, out, target string
+	hops              []string
+}{
+	{
+		name: "ipv4 without header",
+		out: ` 1  * rtr-a.example (192.0.2.1)  3.284 ms  1.683 ms
+ 2  rtr-b.example (192.0.2.5)  0.610 ms *  0.390 ms
+ 3  rtr-c.example (192.0.2.9)  0.627 ms  0.565 ms *
+ 4  * * *
+`,
+		hops: []string{
+			"1: rtr-a.example 192.0.2.1 /0 192.0.2.1/3.284 /1.683",
+			"2: rtr-b.example 192.0.2.5 192.0.2.5/0.61 /0 /0.39",
+			"3: rtr-c.example 192.0.2.9 192.0.2.9/0.627 /0.565",
+			"4: - - /0",
+		},
+	},
+	{
+		name: "ipv6",
+		out: `traceroute to 2001:db8::29 (2001:db8::29), 30 hops max, 80 byte packets
+ 1  2001:db8::1 (2001:db8::1)  1.294 ms  0.586 ms  0.414 ms
+ 2  2001:db8::29 (2001:db8::29)  0.616 ms  0.645 ms  0.567 ms
+`,
+		target: "2001:db8::29",
+		hops: []string{
+			"1: 2001:db8::1 2001:db8::1 2001:db8::1/1.294 /0.586 /0.414",
+			"2: 2001:db8::29 2001:db8::29 2001:db8::29/0.616 /0.645 /0.567",
+		},
+	},
+}
+
+func TestTextFSMParserJuniperTracerouteLostProbes(t *testing.T) {
+	for _, tc := range juniperTracerouteLostProbeSamples {
+		t.Run(tc.name, func(t *testing.T) {
+			r := TextFSMParser{}.Parse(OpTraceroute, []byte(tc.out), Config{Template: "juniper_junos_traceroute"})
+			if r.Status != pb.ParseStatus_PARSE_STATUS_OK {
+				t.Fatalf("Status = %v, want OK", r.Status)
+			}
+			tp := r.Payload.(*pb.TracerouteParsed)
+			if tp.Target != tc.target {
+				t.Errorf("target %q, want %q", tp.Target, tc.target)
+			}
+			// Each hop: TTL, host and address of the first probe that answered, then ip/rtt per probe.
+			var got []string
+			for _, h := range tp.Hops {
+				host, ip := "-", "-"
+				var probes []string
+				for _, p := range h.Probes {
+					if ip == "-" && p.Ip != "" {
+						host, ip = p.Hostname, p.Ip
+					}
+					probes = append(probes, fmt.Sprintf("%s/%g", p.Ip, p.RttMs))
+				}
+				got = append(got, fmt.Sprintf("%d: %s %s %s", h.Ttl, host, ip, strings.Join(probes, " ")))
+			}
+			if !slices.Equal(got, tc.hops) {
+				t.Errorf("hops:\n got %q\nwant %q", got, tc.hops)
+			}
+		})
+	}
+}
 
 func TestTextFSMParserJuniperTraceroute(t *testing.T) {
 	r := TextFSMParser{}.Parse(OpTraceroute, []byte(juniperTracerouteSample),
