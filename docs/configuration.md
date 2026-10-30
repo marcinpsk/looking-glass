@@ -59,7 +59,7 @@ devices:
 | `source4`   | IPNet  | `127.0.0.1` | IPv4 source address bound on ping/traceroute. Used as `{{.Cfg.Source4.IP}}` in templates.                                                      |
 | `source6`   | IPNet  | `::1`       | IPv6 source address bound on ping/traceroute.                                                                                                  |
 | `vrf`       | string | `""`        | Routing-instance name interpolated as `{{.Cfg.VRF}}`. **Every bundled template threads this through every operation.** Use the platform default (`default` for IOS/EOS/FRR, `main` for RouterOS, `Base` for SR OS, `inet` for JunOS) if you don't run VRFs. |
-| `ssh_pool_size` | int | `0`        | Maximum number of open SSH connections to this device. `0` means no limit and no pooling. With a value `> 0`, SSH exec keeps idle connections open and uses them again. When all connections are in use, a request fails at once with a `resource_exhausted` error, and the health check marks the device unhealthy. A NETCONF template never uses a connection again, see [Connection and sessions](router-templates.md#connection-and-sessions). |
+| `ssh_pool_size` | int | `0`        | Maximum number of open SSH connections to this device. `0` means no limit and no pooling. With a value `> 0`, SSH exec keeps idle connections open and uses them again. When all connections are in use, a request fails at once with a `resource_exhausted` error, and the health check marks the device unhealthy unless BMP is active for it. A NETCONF template never uses a connection again, see [Connection and sessions](router-templates.md#connection-and-sessions). |
 
 ### A note on credentials
 
