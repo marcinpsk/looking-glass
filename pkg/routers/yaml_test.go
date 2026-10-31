@@ -604,6 +604,9 @@ func TestYamlTransport(t *testing.T) {
 		{"netconf error with a space", "name: t\ntransport: netconf\nnetconf:\n  rpc: " + srosRPC + "\n  output: md-cli-output-block\n  error: error message\n", "netconf.error must be an XML local name", false, ""},
 		{"netconf bad xml", "name: t\ntransport: netconf\nnetconf:\n  rpc: '<command>{{.Command}}</cmd>'\n  output: output\n", "well-formed", false, ""},
 		{"netconf block without transport", "name: t\nnetconf:\n  rpc: " + srosRPC + "\n  output: output\n", "transport: netconf", false, ""},
+		{"empty netconf block without transport", "name: t\nnetconf: {}\n", "transport: netconf", false, ""},
+		{"empty netconf block with ssh", "name: t\ntransport: ssh\nnetconf: {}\n", "transport: netconf", false, ""},
+		{"netconf transport without a block", "name: t\ntransport: netconf\n", "netconf.rpc is required", false, ""},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {

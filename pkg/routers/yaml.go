@@ -97,8 +97,8 @@ type Yaml struct {
 		Name string `yaml:"name"`
 		// Transport selects how commands reach the device: "ssh" (default) or "netconf".
 		Transport string `yaml:"transport"`
-		// Netconf configures the netconf transport.
-		Netconf struct {
+		// Netconf configures the netconf transport. It is nil when the template has no netconf block.
+		Netconf *struct {
 			// RPC is the RPC body template; {{.Command}} is the XML-escaped command.
 			RPC string `yaml:"rpc"`
 			// Output is the local name of the reply elements that hold the command output.
@@ -258,11 +258,14 @@ func (rt *Yaml) compile() error {
 	nc := rt.Template.Netconf
 	switch rt.Template.Transport {
 	case "", transportSSH:
-		if nc.RPC != "" || nc.Output != "" || nc.Error != "" {
+		if nc != nil {
 			return errors.New("netconf block requires transport: netconf")
 		}
 		return nil
 	case transportNetconf:
+		if nc == nil {
+			return errors.New("netconf.rpc is required")
+		}
 		spec, err := utils.NewNetconfSpec(nc.RPC, nc.Output, nc.Error)
 		if err != nil {
 			return err
