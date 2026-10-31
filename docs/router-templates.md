@@ -422,7 +422,9 @@ The command lists are rendered as for SSH exec. Then, for each command:
 * An `<rpc-error>` reply fails the operation with `errs.ExecFailed`. The `error-tag` and `error-message` are logged on the `netconf` component.
 * A reply without a `netconf.output` element fails with `errs.ExecFailed`. Check the element name.
 * Text in a `netconf.error` element does not fail the operation. It is added after the output and logged as `netconf command error`. SR OS uses this for a command that it stops, for example `MINOR: CLI #2005: ... BGP routing daemon is busy`, with the partial output in `md-cli-output-block`.
-* A timeout or a transport error fails with `errs.ExecFailed`.
+* The SSH connection fails as for SSH exec: an unreachable device with `errs.ConnectionFailed`, a router without credentials with `errs.AuthFailed`.
+* A failed NETCONF subsystem request or hello, an RPC timeout, or a transport error during an RPC fails with `errs.ExecFailed`.
+* A `close-session` that fails or times out does not fail the operation. It is logged at debug level on the `netconf` component.
 
 ### Examples
 
