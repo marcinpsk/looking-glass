@@ -1,6 +1,7 @@
 Value Filldown local_asn (\d+)
 Value Filldown router_id ([0-9a-fA-F:.]+)
-Value Filldown,Required peer_ip ([0-9a-fA-F:.]+)
+# A link-local peer keeps its interface scope, for example fe80::1%et-0/0/1:0.0.
+Value Filldown,Required peer_ip ([0-9a-fA-F:.]+(?:%\S+)?)
 Value Filldown peer_asn (\d+)
 Value Filldown uptime (\S+(?:\s+\d+:\d+:\d+)?)
 Value Filldown state (\S+(?:\s+\([^)]*\))?)
