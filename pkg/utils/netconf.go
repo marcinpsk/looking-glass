@@ -12,6 +12,7 @@ import (
 	"sync"
 	"sync/atomic"
 	"text/template"
+	"text/template/parse"
 	"time"
 
 	"github.com/AS203038/looking-glass/pkg/errs"
@@ -112,6 +113,9 @@ func NewNetconfSpec(rpc, output, errElem string) (*NetconfSpec, error) {
 	if err != nil {
 		return nil, fmt.Errorf("netconf.rpc: %w", err)
 	}
+	if err := checkActions(tpl.Tree.Root); err != nil {
+		return nil, err
+	}
 	spec := &NetconfSpec{RPC: tpl, Output: output, Error: errElem}
 	for i, cmd := range netconfSampleCommands {
 		body, err := spec.Render(cmd)
@@ -133,6 +137,26 @@ func NewNetconfSpec(rpc, output, errElem string) (*NetconfSpec, error) {
 		}
 	}
 	return spec, nil
+}
+
+// checkActions reports an error when the template has an action other than
+// {{.Command}}: a function, pipeline or variable can change the command where
+// commandPlaces does not find it.
+func checkActions(root *parse.ListNode) error {
+	for _, n := range root.Nodes {
+		switch n := n.(type) {
+		case *parse.TextNode, *parse.CommentNode:
+			continue
+		case *parse.ActionNode:
+			if len(n.Pipe.Decl) == 0 && len(n.Pipe.Cmds) == 1 && len(n.Pipe.Cmds[0].Args) == 1 {
+				if f, ok := n.Pipe.Cmds[0].Args[0].(*parse.FieldNode); ok && len(f.Ident) == 1 && f.Ident[0] == "Command" {
+					continue
+				}
+			}
+		}
+		return fmt.Errorf("netconf.rpc may use only {{.Command}}, not %s", n)
+	}
+	return nil
 }
 
 // commandPlaces reports whether cmd occurs in the element text of the

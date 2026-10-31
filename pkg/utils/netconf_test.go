@@ -732,7 +732,8 @@ func TestNewNetconfSpec(t *testing.T) {
 		{"text after the element", `<command/>{{.Command}}`, "output", "text outside"},
 		{"text before the element", `{{.Command}}<command/>`, "output", "text outside"},
 		{"command in CDATA", `<command><![CDATA[{{.Command}}]]></command>`, "output", "CDATA"},
-		{"command alias in CDATA", `{{$c := .Command}}<command><![CDATA[{{$c}}]]></command>`, "output", "CDATA"},
+		{"command alias in CDATA", `{{$c := .Command}}<command><![CDATA[{{$c}}]]></command>`, "output", "only {{.Command}}"},
+		{"transformed command in CDATA", `<command>{{.Command}}<![CDATA[{{html .Command}}]]></command>`, "output", "only {{.Command}}"},
 		{"CDATA only in a comment", `<command>{{.Command}}</command><!-- not <![CDATA[{{.Command}}]]> -->`, "output", "comment"},
 		{"command only in an attribute", `<command line="{{.Command}}"/>`, "output", "{{.Command}}"},
 		{"command only in a comment", `<command><!-- {{.Command}} --></command>`, "output", "{{.Command}}"},
@@ -742,7 +743,13 @@ func TestNewNetconfSpec(t *testing.T) {
 		{"XML declaration", `<?xml version="1.0"?><command>{{.Command}}</command>`, "output", "XML declaration"},
 		{"XML declaration in upper case", `<?XML version="1.0"?><command>{{.Command}}</command>`, "output", "XML declaration"},
 		{"other processing instruction", `<?junos-cli x?><command>{{.Command}}</command>`, "output", ""},
-		{"command alias in a comment", `{{$c := .Command}}<command>{{$c}}<!-- {{$c}} --></command>`, "output", "comment"},
+		{"command alias in a comment", `{{$c := .Command}}<command>{{$c}}<!-- {{$c}} --></command>`, "output", "only {{.Command}}"},
+		{"transformed command in a comment", `<command>{{.Command}}<!-- {{html .Command}} --></command>`, "output", "only {{.Command}}"},
+		{"command in a pipeline", `<command>{{.Command | printf "%s"}}</command>`, "output", "only {{.Command}}"},
+		{"if action", `<command>{{if .Command}}{{.Command}}{{end}}</command>`, "output", "only {{.Command}}"},
+		{"template call", `{{define "c"}}{{.}}{{end}}<command>{{template "c" .Command}}</command>`, "output", "only {{.Command}}"},
+		{"trim markers", "<command>\n  {{- .Command -}}\n</command>", "output", ""},
+		{"comment around the element", `<!-- note --><command>{{.Command}}</command><!-- end -->`, "output", ""},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
