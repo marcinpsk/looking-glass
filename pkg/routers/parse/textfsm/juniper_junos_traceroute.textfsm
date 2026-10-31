@@ -16,6 +16,8 @@ Start
   ^traceroute\s+to\s+(?:\S+\s+\()?${target}\)?(?:\s+from\s+${source})?
   ^\s*${ttl}\s+\*\s+\*\s+${hostname3}\s+\(${ip3}\)\s+${rtt_ms3}\s+ms -> Record
   ^\s*${ttl}\s+\*\s+${hostname2}\s+\(${ip2}\)\s+${rtt_ms2}\s+ms(?:\s+(?:${rtt_ms3}\s+ms|\*))? -> Record
+  ^\s*${ttl}\s+\*\s+\*\s+${ip3}\s+${rtt_ms3}\s+ms -> Record
+  ^\s*${ttl}\s+\*\s+${ip2}\s+${rtt_ms2}\s+ms(?:\s+(?:${rtt_ms3}\s+ms|\*))? -> Record
   ^\s*${ttl}\s+${hostname1}\s+\(${ip1}\)\s+${rtt_ms1}\s+ms(?:\s+(?:${rtt_ms2}\s+ms|\*))?(?:\s+(?:${rtt_ms3}\s+ms|\*))? -> Record
   ^\s*${ttl}\s+${ip1}\s+${rtt_ms1}\s+ms(?:\s+(?:${rtt_ms2}\s+ms|\*))?(?:\s+(?:${rtt_ms3}\s+ms|\*))? -> Record
   ^\s*${ttl}\s+\*\s+\*\s+\* -> Record
