@@ -49,7 +49,10 @@ func isAlive(client *ssh.Client) bool {
 	return err == nil
 }
 
-func (p *sshPool) Checkout(router *RouterConfig, config *ssh.ClientConfig) (*ssh.Client, error) {
+// Checkout returns an idle connection that is still alive, or dials a new one.
+// newConfig runs only for a new connection: an idle connection keeps the
+// credentials of its original handshake.
+func (p *sshPool) Checkout(router *RouterConfig, newConfig func() (*ssh.ClientConfig, error)) (*ssh.Client, error) {
 	for {
 		p.mu.Lock()
 		if len(p.conns) > 0 {
@@ -79,6 +82,13 @@ func (p *sshPool) Checkout(router *RouterConfig, config *ssh.ClientConfig) (*ssh
 		p.numOpen++
 		p.mu.Unlock()
 
+		config, err := newConfig()
+		if err != nil {
+			p.mu.Lock()
+			p.numOpen--
+			p.mu.Unlock()
+			return nil, err
+		}
 		sshLogAt(slog.LevelDebug, "ssh pool slot acquired, dialing new connection", router)
 		client, err := ssh.Dial("tcp", router.Hostname, config)
 		if err != nil {
@@ -204,9 +214,71 @@ func execOnClient(client *ssh.Client, router *RouterConfig, cmd []string) ([]str
 // returned as the coarse [errs] sentinels; detailed diagnostics are written
 // to the server log.
 func SSHExec(router *RouterConfig, cmd []string) ([]string, error) {
+	return withSSHClient(router, len(cmd), true, func(client *ssh.Client) ([]string, error) {
+		return execOnClient(client, router, cmd)
+	})
+}
+
+// withSSHClient authenticates to the router and calls run with a connected
+// client. The client comes from the router's pool, or is dialed for this call
+// only when pooling is off. When reuse is false, the client is closed after
+// run and the pool only limits the open connections. commands is only logged.
+func withSSHClient(router *RouterConfig, commands int, reuse bool, run func(*ssh.Client) ([]string, error)) ([]string, error) {
 	if !router.HasSSHCredentials() {
 		return nil, errs.AuthFailed
 	}
+
+	if router.SSHPoolSize <= 0 {
+		config, methods, err := sshClientConfig(router)
+		if err != nil {
+			return nil, err
+		}
+		sshLogAt(slog.LevelDebug, "ssh dial start (unpooled)", router,
+			slog.Any("auth_methods", methods),
+			slog.Int("commands", commands))
+		dialStart := time.Now()
+		client, err := ssh.Dial("tcp", router.Hostname, config)
+		if err != nil {
+			sshLogAt(slog.LevelError, "dial failed", router,
+				slog.Duration("duration", time.Since(dialStart)),
+				slog.Any("err", err))
+			return nil, errs.ConnectionFailed
+		}
+		sshLogAt(slog.LevelDebug, "ssh dial ok (unpooled)", router,
+			slog.Duration("duration", time.Since(dialStart)))
+		defer func() {
+			client.Close()
+			sshLogAt(slog.LevelDebug, "ssh client close (unpooled)", router)
+		}()
+		return run(client)
+	}
+
+	// Pooled Execution Path
+	pool := getPool(router)
+	client, err := pool.Checkout(router, func() (*ssh.ClientConfig, error) {
+		config, _, err := sshClientConfig(router)
+		return config, err
+	})
+	if err != nil {
+		if errors.Is(err, errs.PoolExhausted) || errors.Is(err, errs.AuthFailed) {
+			return nil, err
+		}
+		sshLogAt(slog.LevelError, "checkout failed", router, slog.Any("err", err))
+		return nil, errs.ConnectionFailed
+	}
+
+	ret, err := run(client)
+	pool.Recycle(client, router, err == nil && reuse)
+	if err != nil {
+		return nil, err
+	}
+
+	return ret, nil
+}
+
+// sshClientConfig reads the key and the certificate of router and returns the
+// client config for one new connection with the names of its auth methods.
+func sshClientConfig(router *RouterConfig) (*ssh.ClientConfig, []string, error) {
 	auths := []ssh.AuthMethod{}
 	methods := make([]string, 0, 3)
 	if router.SSHKey != "" {
@@ -215,20 +287,20 @@ func SSHExec(router *RouterConfig, cmd []string) ([]string, error) {
 			sshLogAt(slog.LevelError, "read ssh key failed", router,
 				slog.String("key", router.SSHKey),
 				slog.Any("err", err))
-			return nil, errs.AuthFailed
+			return nil, nil, errs.AuthFailed
 		}
 		key, err := ssh.ParsePrivateKey(k)
 		if err != nil {
 			sshLogAt(slog.LevelError, "parse ssh key failed", router,
 				slog.String("key", router.SSHKey),
 				slog.Any("err", err))
-			return nil, errs.AuthFailed
+			return nil, nil, errs.AuthFailed
 		}
 		signers := []ssh.Signer{key}
 		if router.SSHCert != "" {
 			certSigner, err := loadCertSigner(router, key)
 			if err != nil {
-				return nil, err
+				return nil, nil, err
 			}
 			signers = []ssh.Signer{certSigner, key}
 			methods = append(methods, "publickey-cert")
@@ -250,51 +322,11 @@ func SSHExec(router *RouterConfig, cmd []string) ([]string, error) {
 		methods = append(methods, "password", "keyboard-interactive")
 	}
 
-	config := &ssh.ClientConfig{
+	return &ssh.ClientConfig{
 		User:            router.Username,
 		Auth:            auths,
 		HostKeyCallback: ssh.InsecureIgnoreHostKey(),
-	}
-
-	if router.SSHPoolSize <= 0 {
-		sshLogAt(slog.LevelDebug, "ssh dial start (unpooled)", router,
-			slog.Any("auth_methods", methods),
-			slog.Int("commands", len(cmd)))
-		dialStart := time.Now()
-		client, err := ssh.Dial("tcp", router.Hostname, config)
-		if err != nil {
-			sshLogAt(slog.LevelError, "dial failed", router,
-				slog.Duration("duration", time.Since(dialStart)),
-				slog.Any("err", err))
-			return nil, errs.ConnectionFailed
-		}
-		sshLogAt(slog.LevelDebug, "ssh dial ok (unpooled)", router,
-			slog.Duration("duration", time.Since(dialStart)))
-		defer func() {
-			client.Close()
-			sshLogAt(slog.LevelDebug, "ssh client close (unpooled)", router)
-		}()
-		return execOnClient(client, router, cmd)
-	}
-
-	// Pooled Execution Path
-	pool := getPool(router)
-	client, err := pool.Checkout(router, config)
-	if err != nil {
-		if errors.Is(err, errs.PoolExhausted) {
-			return nil, errs.PoolExhausted
-		}
-		sshLogAt(slog.LevelError, "checkout failed", router, slog.Any("err", err))
-		return nil, errs.ConnectionFailed
-	}
-
-	ret, err := execOnClient(client, router, cmd)
-	pool.Recycle(client, router, err == nil)
-	if err != nil {
-		return nil, err
-	}
-
-	return ret, nil
+	}, methods, nil
 }
 
 // loadCertSigner reads the OpenSSH certificate at router.SSHCert and binds it
