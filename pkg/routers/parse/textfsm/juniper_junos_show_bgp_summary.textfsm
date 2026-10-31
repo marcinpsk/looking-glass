@@ -24,7 +24,10 @@ Peers
   ^${peer_ip}\s+${peer_asn}\s+\d+\s+\d+\s+\d+\s+\d+\s+${uptime}\s+${state}\s*$$ -> Record
   # Stop on a peer line in another shape: the Filldown values still hold the previous peer.
   ^\S+\s+\d+(\s+\d+){4}\s+ -> Error "unknown peer line"
-  ^\s+${address_family}:\s+\d+/${prefixes_received}/${prefixes_accepted}/\d+\s*$$ -> Record
+  # Active/Received[/Accepted]/Damped, as on the peer line.
+  ^\s+${address_family}:\s+\d+/${prefixes_received}/(?:${prefixes_accepted}/)?\d+\s*$$ -> Record
+  # Stop on a family line in another shape: the peer would get no record.
+  ^\s+\S+:\s+\d+(/\d+)*\s*$$ -> Error "unknown family line"
   ^\s*$$
 
 # No record at the end of input: after the last family line only Filldown values are left.

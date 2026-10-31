@@ -1383,6 +1383,33 @@ func TestTextFSMParserJuniperBGPSummaryScopedPeer(t *testing.T) {
 	}
 }
 
+// TestTextFSMParserJuniperBGPSummaryThreeCounterFamilyLine verifies that a family line with Active/Received/Damped
+// on the line after an Establ peer gives a record.
+func TestTextFSMParserJuniperBGPSummaryThreeCounterFamilyLine(t *testing.T) {
+	const out = `Peer                     AS      InPkt     OutPkt    OutQ   Flaps Last Up/Dwn State|#Active/Received/Damped...
+192.168.40.4            200        108        110       0       0     9:00:16 Establ
+  VPN-AB.inet.0: 1/3/0
+192.0.2.3             64500       3318      12206       0       0     1:23:45 Establ
+  inet.0: 2/2/2/0
+`
+	r := TextFSMParser{}.Parse(OpBGPSummary, []byte(out), Config{Template: "juniper_junos_show_bgp_summary"})
+	if r.Status != pb.ParseStatus_PARSE_STATUS_OK {
+		t.Fatalf("Status = %v, want OK", r.Status)
+	}
+	type row struct {
+		ip, af         string
+		recv, accepted uint64
+	}
+	want := []row{{"192.168.40.4", "VPN-AB.inet.0", 3, 0}, {"192.0.2.3", "inet.0", 2, 2}}
+	var got []row
+	for _, p := range r.Payload.(*pb.BGPSummaryParsed).Peers {
+		got = append(got, row{p.PeerIp, p.AddressFamily, p.PrefixesReceived, p.PrefixesAccepted})
+	}
+	if !slices.Equal(got, want) {
+		t.Errorf("peers:\n got %+v\nwant %+v", got, want)
+	}
+}
+
 // TestTextFSMParserJuniperBGPSummaryUnknownPeerLine verifies that a peer line in an unknown shape fails the parse
 // and does not give a record of the previous peer.
 func TestTextFSMParserJuniperBGPSummaryUnknownPeerLine(t *testing.T) {
@@ -1393,6 +1420,7 @@ func TestTextFSMParserJuniperBGPSummaryUnknownPeerLine(t *testing.T) {
 	for name, line := range map[string]string{
 		"not established": "198.51.100.9+179      64510          0          0       0       0        1:00 Active\n",
 		"established":     "198.51.100.9+179      64510         10         10       0       0        1:00 Establ\n  inet.0: 1/1/1/0\n",
+		"family line":     "198.51.100.9          64510         10         10       0       0        1:00 Establ\n  inet.0: 1/1/1/0/0\n",
 	} {
 		t.Run(name, func(t *testing.T) {
 			r := TextFSMParser{}.Parse(OpBGPSummary, []byte(head+line),
