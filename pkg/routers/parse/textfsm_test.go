@@ -227,6 +227,18 @@ var juniperTracerouteLostProbeSamples = []struct {
 		},
 	},
 	{
+		name: "address only after lost probes",
+		out: ` 1  * 192.0.2.1  3.284 ms  1.683 ms
+ 2  * * 192.0.2.5  0.390 ms
+ 3  * 2001:db8::9  0.627 ms  *
+`,
+		hops: []string{
+			"1:  192.0.2.1 /0 192.0.2.1/3.284 /1.683",
+			"2:  192.0.2.5 /0 /0 192.0.2.5/0.39",
+			"3:  2001:db8::9 /0 2001:db8::9/0.627",
+		},
+	},
+	{
 		name: "ipv6",
 		out: `traceroute to 2001:db8::29 (2001:db8::29), 30 hops max, 80 byte packets
  1  2001:db8::1 (2001:db8::1)  1.294 ms  0.586 ms  0.414 ms
@@ -1329,6 +1341,38 @@ func TestTextFSMParserJuniperBGPSummarySameLine(t *testing.T) {
 		{"192.0.2.3", "inet.0", "established", 3600 + 23*60 + 45, 2, 2},
 		{"192.168.40.4", "VPN-AB.inet.0", "established", 9*3600 + 16, 4, 0},
 		{"192.168.40.5", "inet.0", "established", 86400 + 9*3600 + 16, 3, 3},
+	}
+	var got []row
+	for _, p := range s.Peers {
+		got = append(got, row{p.PeerIp, p.AddressFamily, p.State, p.UptimeSeconds, p.PrefixesReceived, p.PrefixesAccepted})
+	}
+	if !slices.Equal(got, want) {
+		t.Errorf("peers:\n got %+v\nwant %+v", got, want)
+	}
+}
+
+// juniperBGPSummaryScopedPeerSample has a link-local IPv6 peer with its interface scope after another peer.
+const juniperBGPSummaryScopedPeerSample = `Peer                     AS      InPkt     OutPkt    OutQ   Flaps Last Up/Dwn State|#Active/Received/Accepted/Damped...
+192.0.2.3             64500       3318      12206       0       0     1:23:45 Establ
+  inet.0: 2/2/2/0
+fe80::5a86:70ff:fe78:e0d5%et-0/0/1:0.0       65001         10         12       0       0        4:01 Establ
+  inet6.0: 5/6/6/0
+`
+
+func TestTextFSMParserJuniperBGPSummaryScopedPeer(t *testing.T) {
+	r := TextFSMParser{}.Parse(OpBGPSummary, []byte(juniperBGPSummaryScopedPeerSample),
+		Config{Template: "juniper_junos_show_bgp_summary"})
+	if r.Status != pb.ParseStatus_PARSE_STATUS_OK {
+		t.Fatalf("Status = %v, want OK", r.Status)
+	}
+	s := r.Payload.(*pb.BGPSummaryParsed)
+	type row struct {
+		ip, af, state          string
+		uptime, recv, accepted uint64
+	}
+	want := []row{
+		{"192.0.2.3", "inet.0", "established", 3600 + 23*60 + 45, 2, 2},
+		{"fe80::5a86:70ff:fe78:e0d5%et-0/0/1:0.0", "inet6.0", "established", 4*60 + 1, 6, 6},
 	}
 	var got []row
 	for _, p := range s.Peers {
