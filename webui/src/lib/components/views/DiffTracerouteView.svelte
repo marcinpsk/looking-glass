@@ -15,6 +15,11 @@
 		status: 'added' | 'removed' | 'changed' | 'unchanged';
 	}
 
+	/** The probes that answered, one per responder, in probe order. */
+	function responders(h: Pb.TracerouteHop): Pb.TracerouteProbe[] {
+		return h.probes.filter((p, i) => p.ip && h.probes.findIndex((q) => q.ip === p.ip) === i);
+	}
+
 	const maxTtl = $derived(
 		Math.max(
 			oldTp.hops.length ? oldTp.hops[oldTp.hops.length - 1].ttl : 0,
@@ -35,9 +40,13 @@
 			if (o && !n) arr.push({ ttl, old: o, status: 'removed' });
 			else if (!o && n) arr.push({ ttl, new: n, status: 'added' });
 			else if (o && n) {
-				const oStr = o.probes.map((p) => `${p.ip}-${p.rttMs}`).join('|');
-				const nStr = n.probes.map((p) => `${p.ip}-${p.rttMs}`).join('|');
-				arr.push({ ttl, old: o, new: n, status: oStr === nStr ? 'unchanged' : 'changed' });
+				// RTT is different on each run: only another set of responders changes the hop.
+				const key = (h: Pb.TracerouteHop) =>
+					responders(h)
+						.map((p) => p.ip)
+						.sort()
+						.join('|');
+				arr.push({ ttl, old: o, new: n, status: key(o) === key(n) ? 'unchanged' : 'changed' });
 			}
 		}
 		return arr;
@@ -85,15 +94,13 @@
 					<td class="px-3 py-1.5 whitespace-nowrap opacity-70">
 						{#if r.old}
 							<div class="flex flex-col">
-								{#each r.old.probes as p, i (i)}
-									{#if p.ip}
-										<span>
-											{p.hostname && p.hostname !== p.ip ? p.hostname : p.ip}{#if p.asn > 0}
-												<span class="ml-1 opacity-75">AS{p.asn}</span>{/if}
-										</span>
-									{:else}
-										<span>*</span>
-									{/if}
+								{#each responders(r.old) as p (p.ip)}
+									<span>
+										{p.hostname && p.hostname !== p.ip ? p.hostname : p.ip}{#if p.asn > 0}
+											<span class="ml-1 opacity-75">AS{p.asn}</span>{/if}
+									</span>
+								{:else}
+									<span>*</span>
 								{/each}
 							</div>
 						{/if}
@@ -101,15 +108,13 @@
 					<td class="px-3 py-1.5 whitespace-nowrap">
 						{#if r.new}
 							<div class="flex flex-col">
-								{#each r.new.probes as p, i (i)}
-									{#if p.ip}
-										<span>
-											{p.hostname && p.hostname !== p.ip ? p.hostname : p.ip}{#if p.asn > 0}
-												<span class="ml-1 opacity-75">AS{p.asn}</span>{/if}
-										</span>
-									{:else}
-										<span>*</span>
-									{/if}
+								{#each responders(r.new) as p (p.ip)}
+									<span>
+										{p.hostname && p.hostname !== p.ip ? p.hostname : p.ip}{#if p.asn > 0}
+											<span class="ml-1 opacity-75">AS{p.asn}</span>{/if}
+									</span>
+								{:else}
+									<span>*</span>
 								{/each}
 							</div>
 						{/if}
