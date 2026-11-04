@@ -222,9 +222,9 @@ var juniperTracerouteLostProbeSamples = []struct {
  4  * * *
 `,
 		hops: []string{
-			"1: rtr-a.example 192.0.2.1 /0 192.0.2.1/3.284 /1.683",
-			"2: rtr-b.example 192.0.2.5 192.0.2.5/0.61 /0 /0.39",
-			"3: rtr-c.example 192.0.2.9 192.0.2.9/0.627 /0.565",
+			"1: rtr-a.example 192.0.2.1 /0 192.0.2.1/3.284 192.0.2.1/1.683",
+			"2: rtr-b.example 192.0.2.5 192.0.2.5/0.61 /0 192.0.2.5/0.39",
+			"3: rtr-c.example 192.0.2.9 192.0.2.9/0.627 192.0.2.9/0.565",
 			"4: - - /0",
 		},
 	},
@@ -235,7 +235,7 @@ var juniperTracerouteLostProbeSamples = []struct {
  3  * 2001:db8::9  0.627 ms  *
 `,
 		hops: []string{
-			"1:  192.0.2.1 /0 192.0.2.1/3.284 /1.683",
+			"1:  192.0.2.1 /0 192.0.2.1/3.284 192.0.2.1/1.683",
 			"2:  192.0.2.5 /0 /0 192.0.2.5/0.39",
 			"3:  2001:db8::9 /0 2001:db8::9/0.627",
 		},
@@ -248,8 +248,8 @@ var juniperTracerouteLostProbeSamples = []struct {
 `,
 		target: "2001:db8::29",
 		hops: []string{
-			"1: 2001:db8::1 2001:db8::1 2001:db8::1/1.294 /0.586 /0.414",
-			"2: 2001:db8::29 2001:db8::29 2001:db8::29/0.616 /0.645 /0.567",
+			"1: 2001:db8::1 2001:db8::1 2001:db8::1/1.294 2001:db8::1/0.586 2001:db8::1/0.414",
+			"2: 2001:db8::29 2001:db8::29 2001:db8::29/0.616 2001:db8::29/0.645 2001:db8::29/0.567",
 		},
 	},
 	{
@@ -259,7 +259,7 @@ var juniperTracerouteLostProbeSamples = []struct {
 `,
 		target: "2001:db8::29",
 		source: "2001:db8::2",
-		hops:   []string{"1: 2001:db8::1 2001:db8::1 2001:db8::1/1.294 /0.586 /0.414"},
+		hops:   []string{"1: 2001:db8::1 2001:db8::1 2001:db8::1/1.294 2001:db8::1/0.586 2001:db8::1/0.414"},
 	},
 	{
 		name: "annotations",
@@ -271,9 +271,9 @@ var juniperTracerouteLostProbeSamples = []struct {
 		target: "192.0.2.9",
 		source: "192.0.2.2",
 		hops: []string{
-			"1: rtr-a.example 192.0.2.1 192.0.2.1/0.571 /0.547 /0.532",
-			"2:  192.0.2.5 192.0.2.5/1.1 /0 /0.9",
-			"3: rtr-c.example 192.0.2.9 /0 192.0.2.9/2.1 /2.2",
+			"1: rtr-a.example 192.0.2.1 192.0.2.1/0.571 192.0.2.1/0.547 192.0.2.1/0.532",
+			"2:  192.0.2.5 192.0.2.5/1.1 /0 192.0.2.5/0.9",
+			"3: rtr-c.example 192.0.2.9 /0 192.0.2.9/2.1 192.0.2.9/2.2",
 		},
 	},
 	{
@@ -283,7 +283,7 @@ var juniperTracerouteLostProbeSamples = []struct {
  3  * rtr-c.example (192.0.2.17)  2.1 ms  192.0.2.21 (192.0.2.21)  2.2 ms
 `,
 		hops: []string{
-			"1: rtr-a.example 192.0.2.1 192.0.2.1/0.61 192.0.2.5/0.7 /0.39",
+			"1: rtr-a.example 192.0.2.1 192.0.2.1/0.61 192.0.2.5/0.7 192.0.2.5/0.39",
 			"2:  192.0.2.9 192.0.2.9/1.1 /0 192.0.2.13/0.9",
 			"3: rtr-c.example 192.0.2.17 /0 192.0.2.17/2.1 192.0.2.21/2.2",
 		},
@@ -297,8 +297,8 @@ var juniperTracerouteLostProbeSamples = []struct {
 `,
 		target: "192.0.2.50",
 		hops: []string{
-			"1: 192.0.2.60 192.0.2.60 192.0.2.60/13.565 /11.696 /11.448",
-			"2: 192.0.2.61 192.0.2.61 192.0.2.61/34.034 /31.538 /27.697",
+			"1: 192.0.2.60 192.0.2.60 192.0.2.60/13.565 192.0.2.60/11.696 192.0.2.60/11.448",
+			"2: 192.0.2.61 192.0.2.61 192.0.2.61/34.034 192.0.2.61/31.538 192.0.2.61/27.697",
 			"3:  192.0.2.62 /0 192.0.2.62/23.174 192.0.2.66/21.009",
 		},
 	},
@@ -313,9 +313,9 @@ var juniperTracerouteLostProbeSamples = []struct {
 `,
 		target: "192.0.2.70",
 		hops: []string{
-			"1: 192.0.2.1 192.0.2.1 192.0.2.1/0.779 /0.728 /0.562",
-			"2: 192.0.2.6 192.0.2.6 192.0.2.6/0.657 /0.611 /0.617",
-			"3: 192.0.2.70 192.0.2.70 192.0.2.70/0.88 /0.808 /0.774",
+			"1: 192.0.2.1 192.0.2.1 192.0.2.1/0.779 192.0.2.1/0.728 192.0.2.1/0.562",
+			"2: 192.0.2.6 192.0.2.6 192.0.2.6/0.657 192.0.2.6/0.611 192.0.2.6/0.617",
+			"3: 192.0.2.70 192.0.2.70 192.0.2.70/0.88 192.0.2.70/0.808 192.0.2.70/0.774",
 			"4: 2001:db8::10 2001:db8::10 2001:db8::10/0.657 /0 2001:db8::11/17.319",
 		},
 	},
@@ -329,7 +329,7 @@ var juniperTracerouteLostProbeSamples = []struct {
 		target: "2001:db8:9009::6",
 		source: "2001:db8:9009:1::1",
 		hops: []string{
-			"1: 2001:db8:9009:1::2 2001:db8:9009:1::2 2001:db8:9009:1::2/1.361 /1.166 /1.117",
+			"1: 2001:db8:9009:1::2 2001:db8:9009:1::2 2001:db8:9009:1::2/1.361 2001:db8:9009:1::2/1.166 2001:db8:9009:1::2/1.117",
 			"2: 2001:db8:9009::6 2001:db8:9009::6 /0 2001:db8:9009::6/1.578 2001:db8:9009::7/1.484",
 		},
 	},
@@ -411,7 +411,7 @@ func TestTextFSMParserJuniperTracerouteASN(t *testing.T) {
 		}
 		got = append(got, asns)
 	}
-	want := [][]uint32{{0, 0, 0}, {64500, 0, 0}, {0, 0, 0}, {64504, 0, 64505}, {0, 64506, 0}, {64507, 64508, 0}}
+	want := [][]uint32{{0, 0, 0}, {64500, 64500, 64500}, {0, 0, 0}, {64504, 0, 64505}, {0, 64506, 0}, {64507, 64508, 0}}
 	if !slices.EqualFunc(got, want, slices.Equal[[]uint32]) {
 		t.Errorf("probe ASNs:\n got %v\nwant %v", got, want)
 	}
@@ -1852,4 +1852,52 @@ func equalStr(a, b []string) bool {
 		}
 	}
 	return true
+}
+
+// The router prints the responder once before its RTTs, so each answered probe must still carry it.
+func TestTextFSMParserTracerouteProbesKeepResponder(t *testing.T) {
+	for _, c := range []struct {
+		template, sample string
+		want             []string
+	}{
+		{"cisco_ios_traceroute", ciscoIOSTracerouteSample, []string{
+			"10.0.0.254/ 10.0.0.254/ 10.0.0.254/",
+			"192.0.2.1/ 192.0.2.1/",
+			"/",
+			"1.1.1.1/one.one.one.one 1.1.1.1/one.one.one.one 1.1.1.1/one.one.one.one",
+		}},
+		{"juniper_junos_traceroute", juniperTracerouteSample, []string{
+			"10.0.0.254/gw.example.com 10.0.0.254/gw.example.com 10.0.0.254/gw.example.com",
+			"192.0.2.1/ 192.0.2.1/ 192.0.2.1/",
+			"/",
+			"1.1.1.1/one.one.one.one 1.1.1.1/one.one.one.one 1.1.1.1/one.one.one.one",
+		}},
+		{"nokia_sros_traceroute", nokiaTracerouteSample, []string{
+			"10.0.0.254/10.0.0.254 10.0.0.254/10.0.0.254 10.0.0.254/10.0.0.254",
+			"1.1.1.1/one.one.one.one 1.1.1.1/one.one.one.one 1.1.1.1/one.one.one.one",
+			"/",
+		}},
+	} {
+		t.Run(c.template, func(t *testing.T) {
+			r := TextFSMParser{}.Parse(OpTraceroute, []byte(c.sample), Config{Template: c.template})
+			if r.Status != pb.ParseStatus_PARSE_STATUS_OK {
+				t.Fatalf("Status = %v, want OK", r.Status)
+			}
+			hops := r.Payload.(*pb.TracerouteParsed).Hops
+			var got []string
+			for _, h := range hops {
+				var probes []string
+				for _, p := range h.Probes {
+					probes = append(probes, p.Ip+"/"+p.Hostname)
+				}
+				got = append(got, strings.Join(probes, " "))
+			}
+			if strings.Join(got, "\n") != strings.Join(c.want, "\n") {
+				t.Errorf("hops (ip/hostname per probe) =\n%s\nwant\n%s", strings.Join(got, "\n"), strings.Join(c.want, "\n"))
+			}
+			if c.template == "cisco_ios_traceroute" && hops[1].Probes[1].Asn != 64500 {
+				t.Errorf("hop 2 probe 2 ASN = %d, want 64500", hops[1].Probes[1].Asn)
+			}
+		})
+	}
 }
