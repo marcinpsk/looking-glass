@@ -446,11 +446,13 @@ func projectProbes(rec map[string]interface{}) []*pb.TracerouteProbe {
 	}
 	if sawNumbered {
 		// Trim trailing fully-empty slots so timeouts at the tail of a
-		// hop don't materialise as synthetic empty probes.
+		// hop don't materialise as synthetic empty probes. A template
+		// sets slotN for a probe printed without an RTT ("*" or "!H"), so that slot stays.
 		for len(probes) > 0 {
 			n := len(probes) - 1
 			last := probes[n]
-			if last.Ip == "" && last.Hostname == "" && rawRTTs[n] == "" && last.Asn == 0 {
+			if last.Ip == "" && last.Hostname == "" && rawRTTs[n] == "" && last.Asn == 0 &&
+				recString(rec, "slot"+strconv.Itoa(n+1)) == "" {
 				probes = probes[:n]
 				rawRTTs = rawRTTs[:n]
 				continue
