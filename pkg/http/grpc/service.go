@@ -242,13 +242,10 @@ func (s *LookingGlassService) Ping(ctx context.Context, req *pb.PingRequest) (*p
 		logRPCOK(tag, start, cached.GetResult(), parse.Result{Kind: cached.GetParserKind(), Status: cached.GetParseStatus()})
 		return &cached, nil
 	}
-	ret, err := ri.Ping(target)
+	ret, err := ri.Ping(ctx, target)
 	if err != nil {
 		logRPCError(tag, "ping_exec", err)
-		if errors.Is(err, errs.PoolExhausted) {
-			return nil, connect.NewError(connect.CodeResourceExhausted, err.Error()).WithCause(err)
-		}
-		return nil, errs.ExecFailed
+		return nil, execError(err)
 	}
 	raw := joinSSH(ret)
 	pr := runParser(ri, parse.OpPing, raw)
@@ -289,13 +286,10 @@ func (s *LookingGlassService) Traceroute(ctx context.Context, req *pb.Traceroute
 		logRPCOK(tag, start, cached.GetResult(), parse.Result{Kind: cached.GetParserKind(), Status: cached.GetParseStatus()})
 		return &cached, nil
 	}
-	ret, err := ri.Traceroute(target)
+	ret, err := ri.Traceroute(ctx, target)
 	if err != nil {
 		logRPCError(tag, "traceroute_exec", err)
-		if errors.Is(err, errs.PoolExhausted) {
-			return nil, connect.NewError(connect.CodeResourceExhausted, err.Error()).WithCause(err)
-		}
-		return nil, errs.ExecFailed
+		return nil, execError(err)
 	}
 	raw := joinSSH(ret)
 	pr := runParser(ri, parse.OpTraceroute, raw)
@@ -364,13 +358,10 @@ func (s *LookingGlassService) BGPSummary(ctx context.Context, req *pb.BGPSummary
 		return resp, nil
 	}
 
-	ret, err := ri.BGPSummary()
+	ret, err := ri.BGPSummary(ctx)
 	if err != nil {
 		logRPCError(tag, "bgp_summary_exec", err)
-		if errors.Is(err, errs.PoolExhausted) {
-			return nil, connect.NewError(connect.CodeResourceExhausted, err.Error()).WithCause(err)
-		}
-		return nil, errs.ExecFailed
+		return nil, execError(err)
 	}
 	raw := joinSSH(ret)
 	pr := runParser(ri, parse.OpBGPSummary, raw)
@@ -443,13 +434,10 @@ func (s *LookingGlassService) BGPRoute(ctx context.Context, req *pb.BGPRouteRequ
 		return resp, nil
 	}
 
-	ret, err := ri.BGPRoute(target)
+	ret, err := ri.BGPRoute(ctx, target)
 	if err != nil {
 		logRPCError(tag, "bgp_route_exec", err)
-		if errors.Is(err, errs.PoolExhausted) {
-			return nil, connect.NewError(connect.CodeResourceExhausted, err.Error()).WithCause(err)
-		}
-		return nil, errs.ExecFailed
+		return nil, execError(err)
 	}
 	raw := joinSSH(ret)
 	pr := runParser(ri, parse.OpBGPRoute, raw)
@@ -584,13 +572,10 @@ func (s *LookingGlassService) BGPPeerRoutes(ctx context.Context, req *pb.BGPPeer
 	}
 
 	// Fallback to SSH Template execution
-	ret, err := ri.BGPPeerRoutes(peerIP, peerName, qTypeStr)
+	ret, err := ri.BGPPeerRoutes(ctx, peerIP, peerName, qTypeStr)
 	if err != nil {
 		logRPCError(tag, "peer_routes_exec", err)
-		if errors.Is(err, errs.PoolExhausted) {
-			return nil, connect.NewError(connect.CodeResourceExhausted, err.Error()).WithCause(err)
-		}
-		return nil, errs.ExecFailed
+		return nil, execError(err)
 	}
 	raw := joinSSH(ret)
 	opName := parse.OpBGPPeerRoutesReceived
@@ -678,13 +663,10 @@ func (s *LookingGlassService) BGPCommunity(ctx context.Context, req *pb.BGPCommu
 		return resp, nil
 	}
 
-	ret, err := ri.BGPCommunity(commStr)
+	ret, err := ri.BGPCommunity(ctx, commStr)
 	if err != nil {
 		logRPCError(tag, "bgp_community_exec", err)
-		if errors.Is(err, errs.PoolExhausted) {
-			return nil, connect.NewError(connect.CodeResourceExhausted, err.Error()).WithCause(err)
-		}
-		return nil, errs.ExecFailed
+		return nil, execError(err)
 	}
 	raw := joinSSH(ret)
 	pr := runParser(ri, parse.OpBGPCommunity, raw)
@@ -761,13 +743,10 @@ func (s *LookingGlassService) BGPLargeCommunity(ctx context.Context, req *pb.BGP
 		return resp, nil
 	}
 
-	ret, err := ri.BGPLargeCommunity(lc)
+	ret, err := ri.BGPLargeCommunity(ctx, lc)
 	if err != nil {
 		logRPCError(tag, "bgp_largecommunity_exec", err)
-		if errors.Is(err, errs.PoolExhausted) {
-			return nil, connect.NewError(connect.CodeResourceExhausted, err.Error()).WithCause(err)
-		}
-		return nil, errs.ExecFailed
+		return nil, execError(err)
 	}
 	raw := joinSSH(ret)
 	pr := runParser(ri, parse.OpBGPLargeCommunity, raw)
@@ -840,13 +819,10 @@ func (s *LookingGlassService) BGPASPath(ctx context.Context, req *pb.BGPASPathRe
 		return resp, nil
 	}
 
-	ret, err := ri.BGPASPath(aspath)
+	ret, err := ri.BGPASPath(ctx, aspath)
 	if err != nil {
 		logRPCError(tag, "bgp_aspath_exec", err)
-		if errors.Is(err, errs.PoolExhausted) {
-			return nil, connect.NewError(connect.CodeResourceExhausted, err.Error()).WithCause(err)
-		}
-		return nil, errs.ExecFailed
+		return nil, execError(err)
 	}
 	raw := joinSSH(ret)
 	pr := runParser(ri, parse.OpBGPASPath, raw)
