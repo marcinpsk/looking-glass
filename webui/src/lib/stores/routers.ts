@@ -1,6 +1,6 @@
 import { writable, derived, get, type Readable } from 'svelte/store';
-import { LookingGlassClient, type Pb } from '$lib/grpc';
-import { pushToast } from '$lib/toast';
+import { LookingGlassClient, type Pb } from '#lib/grpc.js';
+import { pushToast } from '#lib/toast.js';
 
 type Router = Pb.Router;
 

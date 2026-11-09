@@ -1,6 +1,6 @@
 import { writable } from 'svelte/store';
 import type { CommandValue, ExecResult } from './query';
-import type { Pb } from '$lib/grpc';
+import type { Pb } from '#lib/grpc.js';
 
 export interface HistoryEntry {
 	id: string;

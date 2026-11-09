@@ -9,10 +9,10 @@
 		selectMany,
 		clearSelection,
 		loadRouters
-	} from '$lib/stores/routers';
-	import type { Pb } from '$lib/grpc';
+	} from '#lib/stores/routers.js';
+	import type { Pb } from '#lib/grpc.js';
 	import Loader from './Loader.svelte';
-	import { now, relativeTime, absoluteTime, isoTime } from '$lib/time';
+	import { now, relativeTime, absoluteTime, isoTime } from '#lib/time.js';
 	import Search from '@lucide/svelte/icons/search';
 	import MapPin from '@lucide/svelte/icons/map-pin';
 	import ChevronDown from '@lucide/svelte/icons/chevron-down';

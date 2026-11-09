@@ -1,8 +1,8 @@
 <script lang="ts">
 	import { fade } from 'svelte/transition';
-	import type { ExecResult } from '$lib/stores/query';
+	import type { ExecResult } from '#lib/stores/query.js';
 	import Loader from './Loader.svelte';
-	import { now, relativeTime, absoluteTime, isoTime } from '$lib/time';
+	import { now, relativeTime, absoluteTime, isoTime } from '#lib/time.js';
 	import Copy from '@lucide/svelte/icons/copy';
 	import Download from '@lucide/svelte/icons/download';
 	import Search from '@lucide/svelte/icons/search';
@@ -20,9 +20,9 @@
 	import DiffTracerouteView from './views/DiffTracerouteView.svelte';
 	import DiffBGPPathsView from './views/DiffBGPPathsView.svelte';
 	import DiffBGPSummaryView from './views/DiffBGPSummaryView.svelte';
-	import { history } from '$lib/stores/history';
+	import { history } from '#lib/stores/history.js';
 	import FileDiff from '@lucide/svelte/icons/file-diff';
-	import DiffWorker from '$lib/workers/diff.worker.ts?worker';
+	import DiffWorker from '#lib/workers/diff.worker.ts?worker';
 	import { onDestroy } from 'svelte';
 
 	interface Props {

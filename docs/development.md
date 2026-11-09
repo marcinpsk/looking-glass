@@ -73,7 +73,7 @@ web:
   grpc_url: "http://localhost:8080"
 ```
 
-…or override at the env level (the WebUI reads `$env/dynamic/public`):
+…or override at the env level (the WebUI reads `$app/env/public`, declared in `webui/src/env.ts`):
 
 ```bash
 PUBLIC_GRPC_URL=http://localhost:8080 pnpm --dir webui dev
@@ -193,13 +193,14 @@ webui/
 │   ├── lib/         # Reusable building blocks
 │   │   ├── stores/  # Svelte stores (routers, query, sheet)
 │   │   ├── components/  # Visual components (CommandDock, ResultsSheet, …)
-│   │   ├── env.ts   # Wraps $env/dynamic/public with defaults
+│   │   ├── env.ts   # Wraps $app/env/public with defaults
 │   │   └── grpc.ts  # Singleton ConnectRPC client
 │   ├── routes/      # SvelteKit pages and layouts
+│   ├── env.ts       # Declares the PUBLIC_* variables
 │   ├── hooks.client.ts  # Sentry lazy-init
 │   └── app.html     # HTML shell (pre-paint theme script lives here)
 ├── static/          # Favicons, manifest, robots.txt
-├── svelte.config.js # adapter-static → ../cmd/server/dist
+├── kit.config.js    # adapter-static → ../cmd/server/dist
 └── package.json     # workspace:* to ../protobuf
 
 docs/                # ← this documentation
@@ -289,9 +290,10 @@ See [router-templates.md § Authoring a new template](./router-templates.md#auth
 
 1. Add the field to `pkg/http/webui/webui.go`'s `EnvJS` struct (with the `PUBLIC_*` JSON tag).
 2. Wire it from `utils.WebConfig` (you'll likely need to add a new YAML key too).
-3. Add the matching field to `webui/src/lib/env.ts` (`PublicEnv` interface + `defaults` object + any coercion).
-4. Use it in the WebUI.
-5. Document the new YAML key in [configuration.md](./configuration.md).
+3. Declare the variable in `webui/src/env.ts` (`defineEnvVars`). `PublicEnv` takes its keys from there.
+4. In `webui/src/lib/env.ts`, add its default to `defaults`. If the value is not a string, give it its type in `PublicEnv` and coerce it in `getEnv()`.
+5. Use it in the WebUI.
+6. Document the new YAML key in [configuration.md](./configuration.md).
 
 ### Tweaking middleware behaviour
 

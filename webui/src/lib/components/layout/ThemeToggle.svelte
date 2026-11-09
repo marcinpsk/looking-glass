@@ -1,7 +1,7 @@
 <script lang="ts">
 	import Sun from '@lucide/svelte/icons/sun';
 	import Moon from '@lucide/svelte/icons/moon';
-	import { mode, toggleMode } from '$lib/theme';
+	import { mode, toggleMode } from '#lib/theme.js';
 
 	let current = $state<'light' | 'dark'>('dark');
 	mode.subscribe((m) => (current = m));

@@ -1,12 +1,12 @@
 <script lang="ts">
 	import './layout.css';
 	import { onMount } from 'svelte';
-	import { getEnv } from '$lib/env';
-	import Header from '$lib/components/layout/Header.svelte';
-	import Footer from '$lib/components/layout/Footer.svelte';
-	import ResultsSheet from '$lib/components/ResultsSheet.svelte';
-	import CommandDock from '$lib/components/CommandDock.svelte';
-	import Toasts from '$lib/components/Toasts.svelte';
+	import { getEnv } from '#lib/env.js';
+	import Header from '#lib/components/layout/Header.svelte';
+	import Footer from '#lib/components/layout/Footer.svelte';
+	import ResultsSheet from '#lib/components/ResultsSheet.svelte';
+	import CommandDock from '#lib/components/CommandDock.svelte';
+	import Toasts from '#lib/components/Toasts.svelte';
 
 	let { children } = $props();
 
