@@ -169,8 +169,31 @@ func TestTextFSMParserCiscoIOSTraceroute(t *testing.T) {
 		t.Errorf("hop4 probe0: %+v", tp.Hops[3].Probes[0])
 	}
 	// Hop 5 — "!H" replaces the RTT of a reply: the hop has its address and three probes without an RTT.
-	if got := len(tp.Hops[4].Probes); got != 3 || tp.Hops[4].Probes[0].Ip != "198.51.100.7" {
-		t.Errorf("hop5: %v, want 3 probes from 198.51.100.7", tp.Hops[4].Probes)
+	if got := len(tp.Hops[4].Probes); got != 3 {
+		t.Fatalf("hop5: %v, want 3 probes", tp.Hops[4].Probes)
+	}
+	for i, want := range []string{"198.51.100.7", "", "198.51.100.7"} {
+		if got := tp.Hops[4].Probes[i].Ip; got != want {
+			t.Errorf("hop5 probe%d ip = %q, want %q", i, got, want)
+		}
+	}
+}
+
+// TestTextFSMParserCiscoIOSTracerouteSkipsUnreadHopLine checks that a hop line with more than the rules read is not recorded as a shorter hop.
+func TestTextFSMParserCiscoIOSTracerouteSkipsUnreadHopLine(t *testing.T) {
+	sample := "Tracing the route to 192.0.2.9\n" +
+		"  1 10.0.0.254 0 msec 0 msec 0 msec\n" +
+		"  2 * 192.0.2.9 2 msec 3 msec\n" +
+		"  3 192.0.2.5 1 msec 198.51.100.1 2 msec 2 msec\n"
+	r := TextFSMParser{}.Parse(OpTraceroute, []byte(sample), Config{Template: "cisco_ios_traceroute"})
+	tp, ok := r.Payload.(*pb.TracerouteParsed)
+	if r.Status != pb.ParseStatus_PARSE_STATUS_OK || !ok {
+		t.Fatalf("Status = %v, payload %T", r.Status, r.Payload)
+	}
+	for _, h := range tp.Hops {
+		if h.Ttl != 1 {
+			t.Errorf("hop %d recorded from a line the rules do not read: %v", h.Ttl, h.Probes)
+		}
 	}
 }
 

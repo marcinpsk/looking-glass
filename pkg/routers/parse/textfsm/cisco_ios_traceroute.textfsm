@@ -12,8 +12,9 @@ Value slot2 (\*|![A-Z]|\?)
 Value slot3 (\*|![A-Z]|\?)
 
 # Each probe prints "<rtt> msec", "*" when it is lost, or a code such as "!H" in place of the RTT.
+# A rule reads the whole line, so a line with more than it reads is not recorded as a shorter hop.
 Start
   ^Tracing\s+the\s+route\s+to\s+(?:\S+\s+\()?${target}\)?
-  ^\s*${ttl}\s+${hostname1}\s+\(${ip1}\)(?:\s+\[AS\s+${asn1}\])?\s+(?:${rtt_ms1}\s+msec|${slot1})(?:\s+(?:${rtt_ms2}\s+msec|${slot2}))?(?:\s+(?:${rtt_ms3}\s+msec|${slot3}))? -> Record
-  ^\s*${ttl}\s+${ip1}(?:\s+\[AS\s+${asn1}\])?\s+(?:${rtt_ms1}\s+msec|${slot1})(?:\s+(?:${rtt_ms2}\s+msec|${slot2}))?(?:\s+(?:${rtt_ms3}\s+msec|${slot3}))? -> Record
-  ^\s*${ttl}\s+${slot1}(?:\s+${slot2})?(?:\s+${slot3})? -> Record
+  ^\s*${ttl}\s+${hostname1}\s+\(${ip1}\)(?:\s+\[AS\s+${asn1}\])?\s+(?:${rtt_ms1}\s+msec|${slot1})(?:\s+(?:${rtt_ms2}\s+msec|${slot2}))?(?:\s+(?:${rtt_ms3}\s+msec|${slot3}))?\s*$$ -> Record
+  ^\s*${ttl}\s+${ip1}(?:\s+\[AS\s+${asn1}\])?\s+(?:${rtt_ms1}\s+msec|${slot1})(?:\s+(?:${rtt_ms2}\s+msec|${slot2}))?(?:\s+(?:${rtt_ms3}\s+msec|${slot3}))?\s*$$ -> Record
+  ^\s*${ttl}\s+${slot1}(?:\s+${slot2})?(?:\s+${slot3})?\s*$$ -> Record
