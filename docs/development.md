@@ -290,9 +290,10 @@ See [router-templates.md § Authoring a new template](./router-templates.md#auth
 
 1. Add the field to `pkg/http/webui/webui.go`'s `EnvJS` struct (with the `PUBLIC_*` JSON tag).
 2. Wire it from `utils.WebConfig` (you'll likely need to add a new YAML key too).
-3. Add the matching field to `webui/src/lib/env.ts` (`PublicEnv` interface + `defaults` object + any coercion).
-4. Use it in the WebUI.
-5. Document the new YAML key in [configuration.md](./configuration.md).
+3. Declare the variable in `webui/src/env.ts` (`defineEnvVars`). `PublicEnv` takes its keys from there.
+4. In `webui/src/lib/env.ts`, add its default to `defaults`. If the value is not a string, give it its type in `PublicEnv` and coerce it in `getEnv()`.
+5. Use it in the WebUI.
+6. Document the new YAML key in [configuration.md](./configuration.md).
 
 ### Tweaking middleware behaviour
 
