@@ -53,7 +53,7 @@
 
 {#if summary.localAsn || summary.routerId}
 	<div
-		class="border-b px-4 py-2 font-mono text-xs flex flex-wrap items-center justify-between gap-2"
+		class="flex flex-wrap items-center justify-between gap-2 border-b px-4 py-2 font-mono text-xs"
 		style="border-color: var(--color-border); color: var(--color-fg-muted);"
 	>
 		<div class="flex items-center gap-3">
@@ -69,18 +69,18 @@
 				type="text"
 				placeholder="Search ASN, IP, Desc..."
 				bind:value={searchQuery}
-				class="px-2 py-0.5 text-xs w-48 bg-transparent border rounded font-mono focus:outline-none"
+				class="w-48 rounded border bg-transparent px-2 py-0.5 font-mono text-xs focus:outline-none"
 				style="border-color: var(--color-border); color: var(--color-fg);"
 			/>
 		</div>
 	</div>
 {:else}
-	<div class="px-4 py-1.5 border-b flex justify-end" style="border-color: var(--color-border);">
+	<div class="flex justify-end border-b px-4 py-1.5" style="border-color: var(--color-border);">
 		<input
 			type="text"
 			placeholder="Search ASN, IP, Desc..."
 			bind:value={searchQuery}
-			class="px-2 py-0.5 text-xs w-48 bg-transparent border rounded font-mono focus:outline-none"
+			class="w-48 rounded border bg-transparent px-2 py-0.5 font-mono text-xs focus:outline-none"
 			style="border-color: var(--color-border); color: var(--color-fg);"
 		/>
 	</div>
