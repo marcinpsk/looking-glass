@@ -1,5 +1,5 @@
 <script lang="ts">
-	import type { Pb } from '$lib/grpc';
+	import type { Pb } from '#lib/grpc.js';
 	import Check from '@lucide/svelte/icons/check';
 
 	interface Props {

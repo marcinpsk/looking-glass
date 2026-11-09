@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { getEnv, parseLinks } from '$lib/env';
+	import { getEnv, parseLinks } from '#lib/env.js';
 	import ExternalLink from '@lucide/svelte/icons/external-link';
 	import Code from '@lucide/svelte/icons/code';
 

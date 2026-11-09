@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { fade, fly } from 'svelte/transition';
-	import { toasts, dismissToast, type Toast } from '$lib/toast';
+	import { toasts, dismissToast, type Toast } from '#lib/toast.js';
 	import X from '@lucide/svelte/icons/x';
 	import CircleAlert from '@lucide/svelte/icons/circle-alert';
 	import CircleX from '@lucide/svelte/icons/circle-x';

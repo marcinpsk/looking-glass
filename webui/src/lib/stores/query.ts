@@ -1,5 +1,5 @@
 import { writable, get } from 'svelte/store';
-import { LookingGlassClient, Pb } from '$lib/grpc';
+import { LookingGlassClient, Pb } from '#lib/grpc.js';
 import { ConnectError, Code } from '@connectrpc/connect';
 import { selectedRouters } from './routers';
 import { onRunStarted } from './sheet';

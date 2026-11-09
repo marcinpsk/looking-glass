@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { selectedRouters, toggleSelection } from '$lib/stores/routers';
+	import { selectedRouters, toggleSelection } from '#lib/stores/routers.js';
 	import {
 		COMMANDS,
 		COMMANDS_NO_PARAM,
@@ -9,15 +9,15 @@
 		run,
 		resolveCommand,
 		type CommandValue
-	} from '$lib/stores/query';
-	import { dockHeight } from '$lib/stores/sheet';
-	import type { Pb } from '$lib/grpc';
+	} from '#lib/stores/query.js';
+	import { dockHeight } from '#lib/stores/sheet.js';
+	import type { Pb } from '#lib/grpc.js';
 	import Play from '@lucide/svelte/icons/play';
 	import Terminal from '@lucide/svelte/icons/terminal';
 	import CircleAlert from '@lucide/svelte/icons/circle-alert';
 	import X from '@lucide/svelte/icons/x';
 	import RouterIcon from '@lucide/svelte/icons/router';
-	import { history } from '$lib/stores/history';
+	import { history } from '#lib/stores/history.js';
 
 	let cmd = $state<CommandValue | ''>('');
 	let param = $state('');

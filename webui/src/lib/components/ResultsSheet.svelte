@@ -9,11 +9,11 @@
 		maxHeight,
 		HEADER_RESERVED_PX,
 		type SheetState
-	} from '$lib/stores/sheet';
-	import { results, hasRun } from '$lib/stores/query';
-	import { selectedRouters } from '$lib/stores/routers';
-	import type { Pb } from '$lib/grpc';
-	import type { ExecResult } from '$lib/stores/query';
+	} from '#lib/stores/sheet.js';
+	import { results, hasRun } from '#lib/stores/query.js';
+	import { selectedRouters } from '#lib/stores/routers.js';
+	import type { Pb } from '#lib/grpc.js';
+	import type { ExecResult } from '#lib/stores/query.js';
 	import ResultCard from './ResultCard.svelte';
 	import ChevronUp from '@lucide/svelte/icons/chevron-up';
 	import ChevronDown from '@lucide/svelte/icons/chevron-down';

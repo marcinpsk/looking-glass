@@ -1,20 +1,9 @@
-import { env as rawEnv } from '$env/dynamic/public';
+import * as rawEnv from '$app/env/public';
+import type { variables } from '../env.js';
 
-export interface PublicEnv {
-	PUBLIC_PAGE_TITLE: string;
-	PUBLIC_HEADER_TEXT: string;
-	/** Comma-separated `name|href` pairs. */
-	PUBLIC_HEADER_LINKS: string;
-	PUBLIC_HEADER_LOGO: string;
-	PUBLIC_FOOTER_TEXT: string;
-	PUBLIC_FOOTER_LINKS: string;
-	PUBLIC_FOOTER_LOGO: string;
-	PUBLIC_GRPC_URL: string;
-	PUBLIC_LG_VERSION: string;
-	PUBLIC_SENTRY_DSN: string;
-	PUBLIC_SENTRY_ENV: string;
-	PUBLIC_SENTRY_SAMPLE_RATE: number;
-}
+type Name = keyof typeof variables;
+
+export type PublicEnv = { [K in Name]: K extends 'PUBLIC_SENTRY_SAMPLE_RATE' ? number : string };
 
 const defaults: PublicEnv = {
 	PUBLIC_PAGE_TITLE: 'Looking Glass',
@@ -36,7 +25,7 @@ let cached: PublicEnv | null = null;
 /** Returns the runtime env merged with defaults; cached on first call. */
 export function getEnv(): PublicEnv {
 	if (cached) return cached;
-	const raw = rawEnv as unknown as Record<string, string | number | undefined>;
+	const raw: Record<string, unknown> = rawEnv;
 	cached = {
 		...defaults,
 		...Object.fromEntries(Object.entries(raw).filter(([, v]) => v !== undefined && v !== ''))

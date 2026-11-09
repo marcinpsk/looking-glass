@@ -1,5 +1,5 @@
 <script lang="ts">
-	import type { Pb } from '$lib/grpc';
+	import type { Pb } from '#lib/grpc.js';
 
 	interface Props {
 		oldStats: Pb.PingStats;

@@ -1,4 +1,4 @@
-import { getEnv } from '$lib/env';
+import { getEnv } from '#lib/env.js';
 
 const env = getEnv();
 

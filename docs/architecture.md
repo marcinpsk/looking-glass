@@ -49,7 +49,7 @@ The server is a single Go binary. The WebUI is a SvelteKit static build embedded
 
 `main.go` parses `config.yaml`, asks `pkg/routers` to materialise the device list, and hands control to `pkg/http.ListenAndServe`. The whole file is ~60 lines because the heavy lifting lives in `pkg/`.
 
-The `//go:embed all:dist` directive is what gives the binary its self-contained nature. The SvelteKit build (`webui/`) writes its static output to `cmd/server/dist/` via the adapter-static configuration in `webui/svelte.config.js`, so the embed picks it up on the next `go build`.
+The `//go:embed all:dist` directive is what gives the binary its self-contained nature. The SvelteKit build (`webui/`) writes its static output to `cmd/server/dist/` via the adapter-static configuration in `webui/kit.config.js`, so the embed picks it up on the next `go build`.
 
 ### `cmd/cli` — `lg-cli`
 
@@ -127,8 +127,9 @@ Five files of one-liner `errors.New(...)`. The whole point is that RPC clients n
 
 A pnpm workspace linked to `../protobuf` via `workspace:*`. Key files:
 
-* `svelte.config.js` — adapter-static, output to `../cmd/server/dist`.
-* `src/lib/env.ts` — reads `PUBLIC_*` from `$env/dynamic/public` with sane defaults; consumed by every other module.
+* `kit.config.js` — SvelteKit config that `vite.config.ts` passes to `sveltekit()`: adapter-static, output to `../cmd/server/dist`.
+* `src/env.ts` — declares the `PUBLIC_*` variables that the server writes to `/_app/env.js`.
+* `src/lib/env.ts` — reads `PUBLIC_*` from `$app/env/public` with sane defaults; consumed by every other module.
 * `src/lib/grpc.ts` — singleton ConnectRPC client.
 * `src/lib/stores/routers.ts` — fetches the router catalogue, refreshes every 5 minutes, pauses while the tab is hidden.
 * `src/lib/stores/query.ts` — the actual RPC dispatch from the UI.
@@ -243,7 +244,7 @@ Cons:
 * You can't independently rev the WebUI without rebuilding the Go binary (in practice this is fine; both are small).
 * The Go binary is ~20MB rather than ~6MB.
 
-The `webui/svelte.config.js` adapter-static writes directly to `cmd/server/dist`, so `go build` always picks up the freshest WebUI.
+The `webui/kit.config.js` adapter-static writes directly to `cmd/server/dist`, so `go build` always picks up the freshest WebUI.
 
 ## SSH Connection Pooling
 
