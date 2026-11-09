@@ -89,7 +89,7 @@
 		<tbody>
 			{#each rows as r (r.ttl)}
 				<tr
-					class="border-t"
+					class="border-t *:align-top"
 					style="border-color: var(--color-border); background-color: {r.status === 'added'
 						? 'color-mix(in oklab, var(--color-success) 10%, transparent)'
 						: r.status === 'removed'
