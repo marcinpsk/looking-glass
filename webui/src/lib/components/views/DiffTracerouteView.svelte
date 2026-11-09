@@ -14,9 +14,28 @@
 		status: 'added' | 'removed' | 'changed' | 'unchanged';
 	}
 
-	/** The probes that answered, one per responder, in probe order. */
-	function responders(h: Pb.TracerouteHop): Pb.TracerouteProbe[] {
-		return h.probes.filter((p, i) => p.ip && h.probes.findIndex((q) => q.ip === p.ip) === i);
+	interface ProbeLine {
+		id: string;
+		label: string;
+		rtts: string[];
+	}
+
+	/** One line per responder (its IP, else its hostname) with its RTTs, then one '*' line for lost probes. */
+	function probeLines(h: Pb.TracerouteHop): ProbeLine[] {
+		const lines = new Map<string, ProbeLine>();
+		const lost: ProbeLine = { id: '', label: '*', rtts: [] };
+		for (const p of h.probes) {
+			const id = p.ip || p.hostname;
+			if (!id) {
+				lost.rtts.push('*');
+				continue;
+			}
+			const label = p.hostname && p.hostname !== p.ip ? p.hostname : p.ip;
+			let line = lines.get(id);
+			if (!line) lines.set(id, (line = { id, label, rtts: [] }));
+			line.rtts.push(p.rttMs + ' ms');
+		}
+		return lost.rtts.length || !lines.size ? [...lines.values(), lost] : [...lines.values()];
 	}
 
 	const maxTtl = $derived(
@@ -41,8 +60,9 @@
 			else if (o && n) {
 				// RTT is different on each run: only another set of responders changes the hop.
 				const key = (h: Pb.TracerouteHop) =>
-					responders(h)
-						.map((p) => p.ip)
+					probeLines(h)
+						.map((l) => l.id)
+						.filter(Boolean)
 						.sort()
 						.join('|');
 				arr.push({ ttl, old: o, new: n, status: key(o) === key(n) ? 'unchanged' : 'changed' });
@@ -90,10 +110,8 @@
 					<td class="px-3 py-1.5 whitespace-nowrap opacity-70">
 						{#if r.old}
 							<div class="flex flex-col">
-								{#each responders(r.old) as p (p.ip)}
-									<span>{p.hostname && p.hostname !== p.ip ? p.hostname : p.ip}</span>
-								{:else}
-									<span>*</span>
+								{#each probeLines(r.old) as l (l.id)}
+									<span>{l.label}</span>
 								{/each}
 							</div>
 						{/if}
@@ -101,30 +119,31 @@
 					<td class="px-3 py-1.5 whitespace-nowrap">
 						{#if r.new}
 							<div class="flex flex-col">
-								{#each responders(r.new) as p (p.ip)}
-									<span>{p.hostname && p.hostname !== p.ip ? p.hostname : p.ip}</span>
-								{:else}
-									<span>*</span>
+								{#each probeLines(r.new) as l (l.id)}
+									<span>{l.label}</span>
 								{/each}
 							</div>
 						{/if}
 					</td>
 					<td class="px-3 py-1.5 text-right whitespace-nowrap">
 						{#if r.status === 'changed'}
-							<div class="flex flex-col items-end line-through opacity-50">
-								{#each r.old?.probes || [] as p, i (i)}
-									<span>{p.ip ? p.rttMs + ' ms' : '*'}</span>
-								{/each}
-							</div>
-							<div class="flex flex-col items-end text-(--color-success)">
-								{#each r.new?.probes || [] as p, i (i)}
-									<span>{p.ip ? p.rttMs + ' ms' : '*'}</span>
-								{/each}
+							<!-- Side by side: each line is level with its responder in the old or new host column. -->
+							<div class="flex items-start justify-end gap-4">
+								<div class="flex flex-col items-end line-through opacity-50">
+									{#each probeLines(r.old!) as l (l.id)}
+										<span>{l.rtts.join(' ') || '*'}</span>
+									{/each}
+								</div>
+								<div class="flex flex-col items-end text-(--color-success)">
+									{#each probeLines(r.new!) as l (l.id)}
+										<span>{l.rtts.join(' ') || '*'}</span>
+									{/each}
+								</div>
 							</div>
 						{:else}
 							<div class="flex flex-col items-end">
-								{#each (r.new || r.old)?.probes || [] as p, i (i)}
-									<span>{p.ip ? p.rttMs + ' ms' : '*'}</span>
+								{#each probeLines((r.new || r.old)!) as l (l.id)}
+									<span>{l.rtts.join(' ') || '*'}</span>
 								{/each}
 							</div>
 						{/if}

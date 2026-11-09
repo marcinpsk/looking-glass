@@ -27,7 +27,7 @@
 				<tr
 					class="border-t"
 					style="border-color: var(--color-border);"
-					class:opacity-50={hop.probes.every((p) => !p.ip)}
+					class:opacity-50={!answered}
 				>
 					<td class="px-3 py-1.5" style="color: var(--color-fg-muted);">{hop.ttl}</td>
 					<td class="px-3 py-1.5">

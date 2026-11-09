@@ -7,6 +7,8 @@ import DiffTracerouteView from './DiffTracerouteView.svelte';
 const a = (rttMs: number): JsonObject => ({ ip: '192.0.2.1', hostname: 'rtr-a.example', rttMs });
 const b = (rttMs: number): JsonObject => ({ ip: '192.0.2.5', hostname: '192.0.2.5', rttMs });
 const lost: JsonObject = { ip: '', hostname: '', rttMs: 0 };
+// A template can give the hostname and no IP.
+const named = (hostname: string, rttMs: number): JsonObject => ({ ip: '', hostname, rttMs });
 
 // Each argument is one hop: its TTL is its position.
 const trace = (...hops: JsonObject[][]) =>
@@ -29,50 +31,51 @@ function renderRows(oldTp: Pb.TracerouteParsed, newTp: Pb.TracerouteParsed): str
 describe('DiffTracerouteView', () => {
 	it('does not mark a hop when only the RTT is different', () => {
 		const rows = renderRows(trace([a(1.5), a(2.5), a(3.5)]), trace([a(1.25), a(2.25), a(3.25)]));
-		expect(rows).toEqual([
-			['1', '', 'rtr-a.example', 'rtr-a.example', '1.25 ms / 2.25 ms / 3.25 ms']
-		]);
+		expect(rows).toEqual([['1', '', 'rtr-a.example', 'rtr-a.example', '1.25 ms 2.25 ms 3.25 ms']]);
 	});
 
 	it('lists each responder once and does not mark another probe order', () => {
 		const rows = renderRows(trace([a(1.5), b(2.5), b(3.5)]), trace([b(1.5), a(2.5), a(3.5)]));
 		expect(rows).toEqual([
-			[
-				'1',
-				'',
-				'rtr-a.example / 192.0.2.5',
-				'192.0.2.5 / rtr-a.example',
-				'1.5 ms / 2.5 ms / 3.5 ms'
-			]
+			['1', '', 'rtr-a.example / 192.0.2.5', '192.0.2.5 / rtr-a.example', '1.5 ms / 2.5 ms 3.5 ms']
 		]);
 	});
 
 	it('marks a hop when another router answers, with the old and new RTTs', () => {
 		const rows = renderRows(trace([a(1.5), a(2.5)]), trace([a(1.25), b(2.25)]));
 		expect(rows).toEqual([
-			[
-				'1',
-				'~',
-				'rtr-a.example',
-				'rtr-a.example / 192.0.2.5',
-				'1.5 ms / 2.5 ms / 1.25 ms / 2.25 ms'
-			]
+			['1', '~', 'rtr-a.example', 'rtr-a.example / 192.0.2.5', '1.5 ms 2.5 ms / 1.25 ms / 2.25 ms']
 		]);
 	});
 
 	it('does not mark a hop when a probe of the same router is lost', () => {
 		const rows = renderRows(trace([a(1.5), a(2.5), a(3.5)]), trace([a(1.5), lost, a(3.5)]));
-		expect(rows).toEqual([['1', '', 'rtr-a.example', 'rtr-a.example', '1.5 ms / * / 3.5 ms']]);
+		expect(rows).toEqual([['1', '', 'rtr-a.example', 'rtr-a.example / *', '1.5 ms 3.5 ms / *']]);
 	});
 
 	it('shows * once for a hop that no probe answered', () => {
 		const rows = renderRows(trace([lost, lost, lost]), trace([lost, lost, lost]));
-		expect(rows).toEqual([['1', '', '*', '*', '* / * / *']]);
+		expect(rows).toEqual([['1', '', '*', '*', '* * *']]);
 	});
 
 	it('marks a hop that starts to answer', () => {
 		const rows = renderRows(trace([lost, lost]), trace([lost, a(2.5)]));
-		expect(rows).toEqual([['1', '~', '*', 'rtr-a.example', '* / * / * / 2.5 ms']]);
+		expect(rows).toEqual([['1', '~', '*', 'rtr-a.example / *', '* * / 2.5 ms / *']]);
+	});
+
+	it('puts the RTTs of each responder on the line of that responder', () => {
+		const rows = renderRows(trace([a(1), a(2), b(3)]), trace([a(1), a(2), b(3)]));
+		expect(rows).toEqual([
+			['1', '', 'rtr-a.example / 192.0.2.5', 'rtr-a.example / 192.0.2.5', '1 ms 2 ms / 3 ms']
+		]);
+	});
+
+	it('compares and shows a responder that has only a hostname', () => {
+		const rows = renderRows(
+			trace([named('rtr-c.example', 1.5)]),
+			trace([named('rtr-d.example', 2.5)])
+		);
+		expect(rows).toEqual([['1', '~', 'rtr-c.example', 'rtr-d.example', '1.5 ms / 2.5 ms']]);
 	});
 
 	it('marks a hop that only one run has', () => {
