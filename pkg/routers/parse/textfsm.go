@@ -424,6 +424,7 @@ func tfsmTracerouteResult(records []map[string]interface{}) Result {
 func projectProbes(rec map[string]interface{}) []*pb.TracerouteProbe {
 	var probes []*pb.TracerouteProbe
 	var rawRTTs []string
+	var responder *pb.TracerouteProbe
 	sawNumbered := false
 	for i := 1; i <= 9; i++ {
 		suffix := strconv.Itoa(i)
@@ -437,20 +438,29 @@ func projectProbes(rec map[string]interface{}) []*pb.TracerouteProbe {
 		rawIP := recString(rec, "ip"+suffix)
 		rawHost := recString(rec, "hostname"+suffix)
 		rawRTTs = append(rawRTTs, rawRTT)
-		probes = append(probes, &pb.TracerouteProbe{
+		probe := &pb.TracerouteProbe{
 			Ip:       rawIP,
 			Hostname: rawHost,
 			RttMs:    recFloat32(rec, "rtt_ms"+suffix),
 			Asn:      recUint32(rec, "asn"+suffix),
-		})
+		}
+		if rawIP != "" || rawHost != "" {
+			responder = probe
+		} else if slot := recString(rec, "slot"+suffix); slot != "" && slot != "*" && responder != nil {
+			// A code such as "!H" is a reply: the router prints its address only once on the line.
+			probe.Ip, probe.Hostname, probe.Asn = responder.Ip, responder.Hostname, responder.Asn
+		}
+		probes = append(probes, probe)
 	}
 	if sawNumbered {
 		// Trim trailing fully-empty slots so timeouts at the tail of a
-		// hop don't materialise as synthetic empty probes.
+		// hop don't materialise as synthetic empty probes. A template
+		// sets slotN for a probe printed without an RTT ("*" or "!H"), so that slot stays.
 		for len(probes) > 0 {
 			n := len(probes) - 1
 			last := probes[n]
-			if last.Ip == "" && last.Hostname == "" && rawRTTs[n] == "" && last.Asn == 0 {
+			if last.Ip == "" && last.Hostname == "" && rawRTTs[n] == "" && last.Asn == 0 &&
+				recString(rec, "slot"+strconv.Itoa(n+1)) == "" {
 				probes = probes[:n]
 				rawRTTs = rawRTTs[:n]
 				continue
