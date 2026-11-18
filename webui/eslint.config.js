@@ -35,6 +35,20 @@ export default defineConfig(
 		}
 	},
 	{
+		files: ['**/*.svelte'],
+		rules: {
+			'no-restricted-syntax': [
+				'error',
+				{
+					selector:
+						"BinaryExpression[left.property.name='rttMs'][right.value=0], BinaryExpression[right.property.name='rttMs'][left.value=0]",
+					message:
+						'An RTT of 0 is a reply (Cisco IOS prints "0 msec"): test p.ip or p.hostname for a lost probe.'
+				}
+			]
+		}
+	},
+	{
 		rules: {
 			'svelte/no-navigation-without-resolve': 'off',
 			'svelte/prefer-svelte-reactivity': 'off'
