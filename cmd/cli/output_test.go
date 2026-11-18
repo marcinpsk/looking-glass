@@ -51,6 +51,31 @@ func TestPrintTraceroutePrettyLostFirstProbe(t *testing.T) {
 	}
 }
 
+// A reply can have an RTT of 0: Cisco IOS prints "0 msec" for a near hop.
+func TestPrintTraceroutePrettyZeroRTTReply(t *testing.T) {
+	out := `  1 10.0.0.254 0 msec 0 msec 0 msec
+  2 * * *
+`
+	r := parse.TextFSMParser{}.Parse(parse.OpTraceroute, []byte(out), parse.Config{Template: "cisco_ios_traceroute"})
+	if r.Status != pb.ParseStatus_PARSE_STATUS_OK {
+		t.Fatalf("Status = %v, want OK", r.Status)
+	}
+	got := captureStdout(t, func() { printTraceroutePretty(r.Payload.(*pb.TracerouteParsed)) })
+	lines := strings.Split(strings.TrimSpace(got), "\n")
+	if len(lines) != 3 {
+		t.Fatalf("got %d lines, want header and 2 hops:\n%s", len(lines), got)
+	}
+	want := [][]string{
+		{"1", "—", "10.0.0.254", "0.0", "ms", "0.0", "ms", "0.0", "ms"},
+		{"2", "—", "*", "*"},
+	}
+	for i, w := range want {
+		if f := strings.Fields(lines[i+1]); !slices.Equal(f, w) {
+			t.Errorf("hop %d = %q, want %q", i+1, lines[i+1], w)
+		}
+	}
+}
+
 // A state with a reason has the color of the state without the reason.
 func TestPrintBGPSummaryPrettyStateColor(t *testing.T) {
 	old := opts.ForceColor
