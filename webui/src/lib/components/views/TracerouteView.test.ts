@@ -29,4 +29,29 @@ describe('TracerouteView', () => {
 			['2', '—', '*', '***']
 		]);
 	});
+
+	it('does not dim a hop whose responder has only a hostname', () => {
+		const tp = fromJson(Pb.TracerouteParsedSchema, {
+			hops: [
+				{ ttl: 1, probes: [{ hostname: 'core1.example.net', rttMs: 1.5 }] },
+				{ ttl: 2, probes: [{ rttMs: 0 }] }
+			]
+		});
+		const { container } = render(TracerouteView, { tp });
+		const dimmed = Array.from(container.querySelectorAll('tbody tr'), (tr) =>
+			tr.classList.contains('opacity-50')
+		);
+		expect(dimmed).toEqual([false, true]);
+	});
+
+	it('shows a reply with an RTT of 0 as an RTT, not as a lost probe', () => {
+		const tp = fromJson(Pb.TracerouteParsedSchema, {
+			hops: [
+				{ ttl: 1, probes: [{ ip: '10.0.0.254', rttMs: 0 }, { hostname: 'core1.example.net' }, {}] }
+			]
+		});
+		const { container } = render(TracerouteView, { tp });
+		const rtt = container.querySelector('tbody tr td:last-child')!.textContent!.replace(/\s+/g, '');
+		expect(rtt).toBe('0.0ms0.0ms*');
+	});
 });

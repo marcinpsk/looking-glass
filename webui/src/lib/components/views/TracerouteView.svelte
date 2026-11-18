@@ -27,7 +27,7 @@
 				<tr
 					class="border-t"
 					style="border-color: var(--color-border);"
-					class:opacity-50={hop.probes.every((p) => !p.ip)}
+					class:opacity-50={!answered}
 				>
 					<td class="px-3 py-1.5" style="color: var(--color-fg-muted);">{hop.ttl}</td>
 					<td class="px-3 py-1.5">
@@ -46,7 +46,7 @@
 					</td>
 					<td class="px-3 py-1.5 text-right" style="color: var(--color-fg-muted);">
 						{#each hop.probes as p, j (j)}
-							{#if p.rttMs > 0}
+							{#if p.ip || p.hostname}
 								<span class="ml-2">{p.rttMs.toFixed(1)} ms</span>
 							{:else}
 								<span class="ml-2" style="color: var(--color-fg-subtle);">*</span>
