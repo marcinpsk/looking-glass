@@ -21,7 +21,7 @@
       
       
       <link rel="icon" href="../assets/images/favicon.png">
-      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.8.0">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.8.2">
     
     
       
@@ -1761,17 +1761,32 @@
 <tr>
 <td><code>ConnectionFailed</code></td>
 <td><code>ssh.Dial</code></td>
-<td>TCP or SSH handshake failed before authentication.</td>
+<td>TCP or SSH handshake failed before authentication (<code>unavailable</code>).</td>
 </tr>
 <tr>
 <td><code>AuthFailed</code></td>
 <td>SSH auth</td>
-<td>SSH credentials rejected, or <code>ssh_key</code> unreadable / unparseable.</td>
+<td>SSH credentials rejected, or <code>ssh_key</code> unreadable / unparseable (<code>unavailable</code>).</td>
 </tr>
 <tr>
 <td><code>ExecFailed</code></td>
 <td>SSH session execution</td>
-<td>Session creation, command exit, or stderr capture failed.</td>
+<td>Session creation, command exit, or stderr capture failed (<code>unavailable</code>).</td>
+</tr>
+<tr>
+<td><code>ExecTimeout</code></td>
+<td>SSH / NETCONF command timeout</td>
+<td>Command execution exceeded <code>command_timeout</code> (default <code>60s</code> SSH / <code>10m</code> NETCONF) or caller deadline (<code>deadline_exceeded</code>).</td>
+</tr>
+<tr>
+<td><code>ExecCanceled</code></td>
+<td>Request context cancellation</td>
+<td>Caller aborted or disconnected before the router finished (<code>canceled</code>).</td>
+</tr>
+<tr>
+<td><code>PoolExhausted</code></td>
+<td>SSH connection pool</td>
+<td>All <code>ssh_pool_size</code> slots for this device are in use (<code>resource_exhausted</code>).</td>
 </tr>
 </tbody>
 </table>
@@ -1990,6 +2005,7 @@
 <ul>
 <li><strong>Build-Stable Invalidation</strong>: The current version string (e.g. <code>v1.2.3</code> or untracked suffix) is folded directly into every key prefix. Deploying a new binary release instantly invalidates prior cached items cluster-wide, eliminating stale-state issues after an upgrade.</li>
 <li><strong>No Error Caching</strong>: Only successful RPC responses are cached. Connection failures, authentication timeouts, or other operational errors are never written to the cache.</li>
+<li><strong>Size Guard</strong>: Serialized responses larger than 8 MiB are skipped when writing to Redis to avoid large cache-marshal spikes.</li>
 <li><strong>TTL Configuration</strong>: Cache TTL is configured globally via <code>redis.ttl</code> (e.g. <code>5m</code>). There is no manual invalidation API.</li>
 </ul>
 <p>Cache hits set the <code>X-Cache: HIT</code> response header and appear in the structured access log:</p>
@@ -2138,7 +2154,7 @@
       <script id="__config" type="application/json">{"annotate": null, "base": "..", "features": ["navigation.sections", "navigation.expand", "content.code.copy"], "search": "../assets/javascripts/workers/search.a7633da7.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
     
     
-      <script src="../assets/javascripts/bundle.c21346df.min.js"></script>
+      <script src="../assets/javascripts/bundle.a5f9d56c.min.js"></script>
       
     
   </body>

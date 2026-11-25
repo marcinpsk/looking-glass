@@ -21,7 +21,7 @@
       
       
       <link rel="icon" href="../assets/images/favicon.png">
-      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.8.0">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.8.2">
     
     
       
@@ -1019,7 +1019,7 @@
 
 <h1 id="configuration-reference">Configuration Reference<a class="headerlink" href="#configuration-reference" title="Permanent link">&para;</a></h1>
 <p>Looking Glass is configured by a single YAML file: <code>config.yaml</code> in the server's working directory. There is no command-line flag for config path, no environment-variable equivalents for individual keys, and no runtime reload — restart the server to apply changes.</p>
-<p>The only environment variable consulted by the server itself is <strong><code>ROUTER_DIR</code></strong> (see <a href="#router-templates">Router templates</a>).</p>
+<p>The application-specific environment variable consulted by the server itself is <strong><code>ROUTER_DIR</code></strong> (see <a href="#router-templates">Router templates</a>). At startup, <code>cmd/server</code> also honors Go's standard <strong><code>GOMAXPROCS</code></strong> and <strong><code>GOMEMLIMIT</code></strong> environment variables as well as <strong><code>AUTOMEMLIMIT</code></strong> (<code>0.0</code>–<code>1.0</code> cgroup memory ratio, default <code>0.9</code>, or <code>off</code> to disable automatic memory-limit tuning).</p>
 <p>The canonical, fully-annotated example lives at <a href="../example.config.yaml"><code>example.config.yaml</code></a>. This page is the spec.</p>
 <h2 id="top-level-shape">Top-level shape<a class="headerlink" href="#top-level-shape" title="Permanent link">&para;</a></h2>
 <div class="language-yaml highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nt">devices</span><span class="p">:</span><span class="w">        </span><span class="p p-Indicator">[]</span><span class="w">          </span><span class="c1"># required (may be empty but key must exist)</span>
@@ -1051,6 +1051,7 @@
 </span><span id="__span-1-11"><a id="__codelineno-1-11" name="__codelineno-1-11" href="#__codelineno-1-11"></a><span class="w">    </span><span class="nt">source6</span><span class="p">:</span><span class="w">  </span><span class="s">"2001:db8::1"</span><span class="w">           </span><span class="c1"># required for IPv6 ping/traceroute</span>
 </span><span id="__span-1-12"><a id="__codelineno-1-12" name="__codelineno-1-12" href="#__codelineno-1-12"></a><span class="w">    </span><span class="nt">vrf</span><span class="p">:</span><span class="w">      </span><span class="s">"default"</span><span class="w">               </span><span class="c1"># required (use "default" / "main" / "Base" if you don't run VRFs)</span>
 </span><span id="__span-1-13"><a id="__codelineno-1-13" name="__codelineno-1-13" href="#__codelineno-1-13"></a><span class="w">    </span><span class="nt">ssh_pool_size</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">5</span><span class="w">                  </span><span class="c1"># optional maximum open connections to this device, idle ones are pooled (0 disables pooling)</span>
+</span><span id="__span-1-14"><a id="__codelineno-1-14" name="__codelineno-1-14" href="#__codelineno-1-14"></a><span class="w">    </span><span class="nt">command_timeout</span><span class="p">:</span><span class="w"> </span><span class="s">"60s"</span><span class="w">            </span><span class="c1"># optional command execution timeout override (Go duration)</span>
 </span></code></pre></div>
 <h3 id="field-semantics">Field semantics<a class="headerlink" href="#field-semantics" title="Permanent link">&para;</a></h3>
 <table>
@@ -1135,6 +1136,12 @@
 <td><code>0</code></td>
 <td>Maximum number of open SSH connections to this device. <code>0</code> means no limit and no pooling. With a value <code>&gt; 0</code>, SSH exec keeps idle connections open and uses them again. When all connections are in use, a request fails at once with a <code>resource_exhausted</code> error, and the health check marks the device unhealthy unless BMP is active for it. A NETCONF template never uses a connection again, see <a href="../router-templates/#connection-and-sessions">Connection and sessions</a>.</td>
 </tr>
+<tr>
+<td><code>command_timeout</code></td>
+<td>duration</td>
+<td><code>grpc.command_timeout</code> (or <code>60s</code> SSH / <code>10m</code> NETCONF)</td>
+<td>Optional Go <a href="https://pkg.go.dev/time#ParseDuration"><code>time.ParseDuration</code></a> string bounding command execution for this device. Negative values fail startup validation.</td>
+</tr>
 </tbody>
 </table>
 <h3 id="a-note-on-credentials">A note on credentials<a class="headerlink" href="#a-note-on-credentials" title="Permanent link">&para;</a></h3>
@@ -1150,11 +1157,12 @@
 <div class="language-yaml highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="nt">grpc</span><span class="p">:</span>
 </span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="w">  </span><span class="nt">enabled</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
 </span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="w">  </span><span class="nt">listen</span><span class="p">:</span><span class="w"> </span><span class="s">":8080"</span>
-</span><span id="__span-2-4"><a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="w">  </span><span class="nt">tls</span><span class="p">:</span>
-</span><span id="__span-2-5"><a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a><span class="w">    </span><span class="nt">enabled</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">false</span>
-</span><span id="__span-2-6"><a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a><span class="w">    </span><span class="nt">self_signed</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">false</span>
-</span><span id="__span-2-7"><a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a><span class="w">    </span><span class="nt">cert</span><span class="p">:</span><span class="w"> </span><span class="s">"/path/to/fullchain.pem"</span>
-</span><span id="__span-2-8"><a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a><span class="w">    </span><span class="nt">key</span><span class="p">:</span><span class="w">  </span><span class="s">"/path/to/privkey.pem"</span>
+</span><span id="__span-2-4"><a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="w">  </span><span class="nt">command_timeout</span><span class="p">:</span><span class="w"> </span><span class="s">"60s"</span>
+</span><span id="__span-2-5"><a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a><span class="w">  </span><span class="nt">tls</span><span class="p">:</span>
+</span><span id="__span-2-6"><a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a><span class="w">    </span><span class="nt">enabled</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">false</span>
+</span><span id="__span-2-7"><a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a><span class="w">    </span><span class="nt">self_signed</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">false</span>
+</span><span id="__span-2-8"><a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a><span class="w">    </span><span class="nt">cert</span><span class="p">:</span><span class="w"> </span><span class="s">"/path/to/fullchain.pem"</span>
+</span><span id="__span-2-9"><a id="__codelineno-2-9" name="__codelineno-2-9" href="#__codelineno-2-9"></a><span class="w">    </span><span class="nt">key</span><span class="p">:</span><span class="w">  </span><span class="s">"/path/to/privkey.pem"</span>
 </span></code></pre></div>
 <table>
 <thead>
@@ -1177,6 +1185,12 @@
 <td>string</td>
 <td>—</td>
 <td>Bind address. <code>:8080</code> for "all interfaces, port 8080".</td>
+</tr>
+<tr>
+<td><code>command_timeout</code></td>
+<td>duration</td>
+<td><code>60s</code> (SSH) / <code>10m</code> (NETCONF)</td>
+<td>Default Go <a href="https://pkg.go.dev/time#ParseDuration"><code>time.ParseDuration</code></a> string inherited by devices that omit <code>command_timeout</code>. Operators behind a reverse proxy with a 60s upstream timeout can set a lower value (e.g. <code>45s</code>) or raise the proxy timeout so slow commands surface as <code>deadline_exceeded</code> instead of an upstream HTTP 504. Negative values fail startup validation.</td>
 </tr>
 <tr>
 <td><code>tls.enabled</code></td>
@@ -1236,6 +1250,7 @@
 </span><span id="__span-3-19"><a id="__codelineno-3-19" name="__codelineno-3-19" href="#__codelineno-3-19"></a><span class="w">    </span><span class="nt">dsn</span><span class="p">:</span><span class="w"> </span><span class="s">"https://...sentry.io/..."</span>
 </span><span id="__span-3-20"><a id="__codelineno-3-20" name="__codelineno-3-20" href="#__codelineno-3-20"></a><span class="w">    </span><span class="nt">environment</span><span class="p">:</span><span class="w"> </span><span class="s">"production"</span>
 </span><span id="__span-3-21"><a id="__codelineno-3-21" name="__codelineno-3-21" href="#__codelineno-3-21"></a><span class="w">    </span><span class="nt">sample_rate</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">0.1</span>
+</span><span id="__span-3-22"><a id="__codelineno-3-22" name="__codelineno-3-22" href="#__codelineno-3-22"></a><span class="w">    </span><span class="nt">replay</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">false</span>
 </span></code></pre></div>
 <table>
 <thead>
@@ -1324,6 +1339,12 @@
 <td>float</td>
 <td><code>0.0</code></td>
 <td>Traces-sample-rate <code>[0,1]</code>. <code>0</code> keeps error reporting but disables performance tracing.</td>
+</tr>
+<tr>
+<td><code>sentry.replay</code></td>
+<td>bool</td>
+<td><code>false</code></td>
+<td>Enables Sentry Session Replay in the browser when <code>sentry.enabled</code> is true.</td>
 </tr>
 </tbody>
 </table>
@@ -1478,7 +1499,7 @@
 <tr>
 <td><code>server</code></td>
 <td>—</td>
-<td><code>server starting</code> (version, pid, devices) / <code>server shutting down</code>.</td>
+<td><code>maxprocs:</code> / <code>GOMEMLIMIT</code> startup messages; <code>server starting</code> (<code>version</code>, <code>pid</code>, <code>devices</code>, <code>gomaxprocs</code>, <code>gomemlimit</code>) / <code>server shutting down</code>.</td>
 </tr>
 <tr>
 <td><code>http</code></td>
@@ -1812,7 +1833,7 @@
       <script id="__config" type="application/json">{"annotate": null, "base": "..", "features": ["navigation.sections", "navigation.expand", "content.code.copy"], "search": "../assets/javascripts/workers/search.a7633da7.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
     
     
-      <script src="../assets/javascripts/bundle.c21346df.min.js"></script>
+      <script src="../assets/javascripts/bundle.a5f9d56c.min.js"></script>
       
     
   </body>
