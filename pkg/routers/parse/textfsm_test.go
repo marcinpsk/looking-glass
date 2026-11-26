@@ -114,6 +114,7 @@ VRF info: (vrf in name/id, vrf out name/id)
   2 192.0.2.1 [AS 64500] 1 msec 1 msec *
   3 * * *
   4 one.one.one.one (1.1.1.1) 8 msec 8 msec 8 msec
+  5 198.51.100.7 !H  *  !H
 `
 
 // TestTextFSMParserCiscoIOSTraceroute covers the multi-probe-per-line
@@ -131,8 +132,8 @@ func TestTextFSMParserCiscoIOSTraceroute(t *testing.T) {
 	if tp.Target != "1.1.1.1" {
 		t.Errorf("Target = %q, want 1.1.1.1", tp.Target)
 	}
-	if got := len(tp.Hops); got != 4 {
-		t.Fatalf("len(Hops) = %d, want 4", got)
+	if got := len(tp.Hops); got != 5 {
+		t.Fatalf("len(Hops) = %d, want 5", got)
 	}
 	// Hop 1 — three resolved probes, same IP. The sample's RTTs
 	// are all "0 msec" (the first hop's transmit-to-LAN latency
@@ -145,17 +146,16 @@ func TestTextFSMParserCiscoIOSTraceroute(t *testing.T) {
 		t.Errorf("hop1 probe0: %+v", tp.Hops[0].Probes[0])
 	}
 
-	// Hop 2 — two probes (the third was a timeout slot and
-	// trimmed). Carries an [AS 64500] annotation in slot 1.
-	if got := len(tp.Hops[1].Probes); got != 2 {
-		t.Errorf("hop2: probes = %d, want 2 (trailing timeout trimmed)", got)
+	// Hop 2 — three probes, the third lost. Carries an [AS 64500] annotation in slot 1.
+	if got := len(tp.Hops[1].Probes); got != 3 {
+		t.Errorf("hop2: probes = %d, want 3 (trailing lost probe kept)", got)
 	}
 	if tp.Hops[1].Probes[0].Asn != 64500 {
 		t.Errorf("hop2 probe0 asn = %d, want 64500", tp.Hops[1].Probes[0].Asn)
 	}
-	// Hop 3 — pure star; one synthetic empty probe.
-	if got := len(tp.Hops[2].Probes); got != 1 {
-		t.Errorf("hop3: probes = %d, want 1 (synthetic empty)", got)
+	// Hop 3 — pure star; one empty probe for each lost probe.
+	if got := len(tp.Hops[2].Probes); got != 3 {
+		t.Errorf("hop3: probes = %d, want 3 (lost probes)", got)
 	}
 	if tp.Hops[2].Probes[0].Ip != "" || tp.Hops[2].Probes[0].RttMs != 0 {
 		t.Errorf("hop3 probe0 should be empty: %+v", tp.Hops[2].Probes[0])
@@ -167,6 +167,33 @@ func TestTextFSMParserCiscoIOSTraceroute(t *testing.T) {
 	if tp.Hops[3].Probes[0].Ip != "1.1.1.1" ||
 		tp.Hops[3].Probes[0].Hostname != "one.one.one.one" {
 		t.Errorf("hop4 probe0: %+v", tp.Hops[3].Probes[0])
+	}
+	// Hop 5 — "!H" replaces the RTT of a reply: the hop has its address and three probes without an RTT.
+	if got := len(tp.Hops[4].Probes); got != 3 {
+		t.Fatalf("hop5: %v, want 3 probes", tp.Hops[4].Probes)
+	}
+	for i, want := range []string{"198.51.100.7", "", "198.51.100.7"} {
+		if got := tp.Hops[4].Probes[i].Ip; got != want {
+			t.Errorf("hop5 probe%d ip = %q, want %q", i, got, want)
+		}
+	}
+}
+
+// TestTextFSMParserCiscoIOSTracerouteSkipsUnreadHopLine checks that a hop line with more than the rules read is not recorded as a shorter hop.
+func TestTextFSMParserCiscoIOSTracerouteSkipsUnreadHopLine(t *testing.T) {
+	sample := "Tracing the route to 192.0.2.9\n" +
+		"  1 10.0.0.254 0 msec 0 msec 0 msec\n" +
+		"  2 * 192.0.2.9 2 msec 3 msec\n" +
+		"  3 192.0.2.5 1 msec 198.51.100.1 2 msec 2 msec\n"
+	r := TextFSMParser{}.Parse(OpTraceroute, []byte(sample), Config{Template: "cisco_ios_traceroute"})
+	tp, ok := r.Payload.(*pb.TracerouteParsed)
+	if r.Status != pb.ParseStatus_PARSE_STATUS_OK || !ok {
+		t.Fatalf("Status = %v, payload %T", r.Status, r.Payload)
+	}
+	for _, h := range tp.Hops {
+		if h.Ttl != 1 {
+			t.Errorf("hop %d recorded from a line the rules do not read: %v", h.Ttl, h.Probes)
+		}
 	}
 }
 
@@ -224,8 +251,8 @@ var juniperTracerouteLostProbeSamples = []struct {
 		hops: []string{
 			"1: rtr-a.example 192.0.2.1 /0 192.0.2.1/3.284 /1.683",
 			"2: rtr-b.example 192.0.2.5 192.0.2.5/0.61 /0 /0.39",
-			"3: rtr-c.example 192.0.2.9 192.0.2.9/0.627 /0.565",
-			"4: - - /0",
+			"3: rtr-c.example 192.0.2.9 192.0.2.9/0.627 /0.565 /0",
+			"4: - - /0 /0 /0",
 		},
 	},
 	{
@@ -237,7 +264,7 @@ var juniperTracerouteLostProbeSamples = []struct {
 		hops: []string{
 			"1:  192.0.2.1 /0 192.0.2.1/3.284 /1.683",
 			"2:  192.0.2.5 /0 /0 192.0.2.5/0.39",
-			"3:  2001:db8::9 /0 2001:db8::9/0.627",
+			"3:  2001:db8::9 /0 2001:db8::9/0.627 /0",
 		},
 	},
 	{
@@ -267,6 +294,8 @@ var juniperTracerouteLostProbeSamples = []struct {
  1  rtr-a.example (192.0.2.1)  0.571 ms !N  0.547 ms !N  0.532 ms !N
  2  192.0.2.5  1.1 ms !H *  0.9 ms !H
  3  * rtr-c.example (192.0.2.9)  2.1 ms !X  2.2 ms !X
+ 4  192.0.2.13  2505.862 ms !N *  2505.654 ms !N
+ 5  192.0.2.17  1.4 ms !N * *
 `,
 		target: "192.0.2.9",
 		source: "192.0.2.2",
@@ -274,6 +303,8 @@ var juniperTracerouteLostProbeSamples = []struct {
 			"1: rtr-a.example 192.0.2.1 192.0.2.1/0.571 /0.547 /0.532",
 			"2:  192.0.2.5 192.0.2.5/1.1 /0 /0.9",
 			"3: rtr-c.example 192.0.2.9 /0 192.0.2.9/2.1 /2.2",
+			"4:  192.0.2.13 192.0.2.13/2505.862 /0 /2505.654",
+			"5:  192.0.2.17 192.0.2.17/1.4 /0 /0",
 		},
 	},
 	{
@@ -440,9 +471,9 @@ func TestTextFSMParserJuniperTraceroute(t *testing.T) {
 		tp.Hops[0].Probes[0].Ip != "10.0.0.254" {
 		t.Errorf("hop1 probe0: %+v", tp.Hops[0].Probes[0])
 	}
-	// Hop 3 — pure star, single synthetic empty probe.
-	if got := len(tp.Hops[2].Probes); got != 1 {
-		t.Errorf("hop3: probes = %d, want 1", got)
+	// Hop 3 — pure star, one empty probe for each lost probe.
+	if got := len(tp.Hops[2].Probes); got != 3 {
+		t.Errorf("hop3: probes = %d, want 3", got)
 	}
 	if tp.Hops[2].Probes[0].Ip != "" {
 		t.Errorf("hop3 probe0 should be empty: %+v", tp.Hops[2].Probes[0])
