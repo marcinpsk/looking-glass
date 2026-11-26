@@ -296,7 +296,7 @@ func printTraceroutePretty(tp *pb.TracerouteParsed) {
 				}
 			}
 			for _, p := range probes {
-				if p.GetIp() != "" || p.GetRttMs() > 0 {
+				if p.GetIp() != "" || p.GetHostname() != "" {
 					rtts = append(rtts, fmt.Sprintf("%.1f ms", p.GetRttMs()))
 				} else {
 					rtts = append(rtts, "*")

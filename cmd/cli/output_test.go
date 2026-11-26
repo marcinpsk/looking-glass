@@ -65,11 +65,14 @@ func TestPrintTraceroutePrettyZeroRTTReply(t *testing.T) {
 	if len(lines) != 3 {
 		t.Fatalf("got %d lines, want header and 2 hops:\n%s", len(lines), got)
 	}
-	if f := strings.Fields(lines[1]); len(f) < 5 || !slices.Equal(f[:5], []string{"1", "—", "10.0.0.254", "0.0", "ms"}) {
-		t.Errorf("hop 1 = %q, want the RTT of the reply from 10.0.0.254 as 0.0 ms", lines[1])
+	want := [][]string{
+		{"1", "—", "10.0.0.254", "0.0", "ms", "0.0", "ms", "0.0", "ms"},
+		{"2", "—", "*", "*"},
 	}
-	if f := strings.Fields(lines[2]); !slices.Equal(f, []string{"2", "—", "*", "*"}) {
-		t.Errorf("hop 2 = %q, want a lost probe as *", lines[2])
+	for i, w := range want {
+		if f := strings.Fields(lines[i+1]); !slices.Equal(f, w) {
+			t.Errorf("hop %d = %q, want %q", i+1, lines[i+1], w)
+		}
 	}
 }
 
