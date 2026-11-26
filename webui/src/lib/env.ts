@@ -1,21 +1,12 @@
 import * as rawEnv from '$app/env/public';
+import type { variables } from '../env';
 
-export interface PublicEnv {
-	PUBLIC_PAGE_TITLE: string;
-	PUBLIC_HEADER_TEXT: string;
-	/** Comma-separated `name|href` pairs. */
-	PUBLIC_HEADER_LINKS: string;
-	PUBLIC_HEADER_LOGO: string;
-	PUBLIC_FOOTER_TEXT: string;
-	PUBLIC_FOOTER_LINKS: string;
-	PUBLIC_FOOTER_LOGO: string;
-	PUBLIC_GRPC_URL: string;
-	PUBLIC_LG_VERSION: string;
-	PUBLIC_SENTRY_DSN: string;
-	PUBLIC_SENTRY_ENV: string;
-	PUBLIC_SENTRY_SAMPLE_RATE: number;
-	PUBLIC_SENTRY_REPLAY: boolean;
-}
+type Coerced = { PUBLIC_SENTRY_SAMPLE_RATE: number; PUBLIC_SENTRY_REPLAY: boolean };
+
+/** Has a field for each variable in src/env.ts; a variable not in Coerced is a string. */
+export type PublicEnv = {
+	-readonly [K in keyof typeof variables]: K extends keyof Coerced ? Coerced[K] : string;
+};
 
 const defaults: PublicEnv = {
 	PUBLIC_PAGE_TITLE: 'Looking Glass',

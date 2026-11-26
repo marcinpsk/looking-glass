@@ -5,10 +5,18 @@ const optional = (value: string | undefined) => value ?? '';
 export const variables = defineEnvVars({
 	PUBLIC_PAGE_TITLE: { public: true, schema: optional },
 	PUBLIC_HEADER_TEXT: { public: true, schema: optional },
-	PUBLIC_HEADER_LINKS: { public: true, schema: optional },
+	PUBLIC_HEADER_LINKS: {
+		public: true,
+		schema: optional,
+		description: 'Comma-separated `name|href` pairs.'
+	},
 	PUBLIC_HEADER_LOGO: { public: true, schema: optional },
 	PUBLIC_FOOTER_TEXT: { public: true, schema: optional },
-	PUBLIC_FOOTER_LINKS: { public: true, schema: optional },
+	PUBLIC_FOOTER_LINKS: {
+		public: true,
+		schema: optional,
+		description: 'Comma-separated `name|href` pairs.'
+	},
 	PUBLIC_FOOTER_LOGO: { public: true, schema: optional },
 	PUBLIC_GRPC_URL: { public: true, schema: optional },
 	PUBLIC_LG_VERSION: { public: true, schema: optional },
