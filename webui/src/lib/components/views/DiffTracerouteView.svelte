@@ -15,6 +15,31 @@
 		status: 'added' | 'removed' | 'changed' | 'unchanged';
 	}
 
+	interface ProbeLine {
+		id: string;
+		label: string;
+		asn: number;
+		rtts: string[];
+	}
+
+	/** One line per responder (its IP, else its hostname) with its RTTs, then one '*' line for lost probes. */
+	function probeLines(h: Pb.TracerouteHop): ProbeLine[] {
+		const lines = new Map<string, ProbeLine>();
+		const lost: ProbeLine = { id: '', label: '*', asn: 0, rtts: [] };
+		for (const p of h.probes) {
+			const id = p.ip || p.hostname;
+			if (!id) {
+				lost.rtts.push('*');
+				continue;
+			}
+			const label = p.hostname && p.hostname !== p.ip ? p.hostname : p.ip;
+			let line = lines.get(id);
+			if (!line) lines.set(id, (line = { id, label, asn: p.asn, rtts: [] }));
+			line.rtts.push(float32(p.rttMs) + ' ms');
+		}
+		return lost.rtts.length || !lines.size ? [...lines.values(), lost] : [...lines.values()];
+	}
+
 	const maxTtl = $derived(
 		Math.max(
 			oldTp.hops.length ? oldTp.hops[oldTp.hops.length - 1].ttl : 0,
@@ -35,9 +60,14 @@
 			if (o && !n) arr.push({ ttl, old: o, status: 'removed' });
 			else if (!o && n) arr.push({ ttl, new: n, status: 'added' });
 			else if (o && n) {
-				const oStr = o.probes.map((p) => `${p.ip}-${p.rttMs}`).join('|');
-				const nStr = n.probes.map((p) => `${p.ip}-${p.rttMs}`).join('|');
-				arr.push({ ttl, old: o, new: n, status: oStr === nStr ? 'unchanged' : 'changed' });
+				// RTT is different on each run: only another set of responders changes the hop.
+				const key = (h: Pb.TracerouteHop) =>
+					probeLines(h)
+						.map((l) => l.id)
+						.filter(Boolean)
+						.sort()
+						.join('|');
+				arr.push({ ttl, old: o, new: n, status: key(o) === key(n) ? 'unchanged' : 'changed' });
 			}
 		}
 		return arr;
@@ -61,7 +91,7 @@
 		<tbody>
 			{#each rows as r (r.ttl)}
 				<tr
-					class="border-t"
+					class="border-t *:align-top"
 					style="border-color: var(--color-border); background-color: {r.status === 'added'
 						? 'color-mix(in oklab, var(--color-success) 10%, transparent)'
 						: r.status === 'removed'
@@ -85,15 +115,11 @@
 					<td class="px-3 py-1.5 whitespace-nowrap opacity-70">
 						{#if r.old}
 							<div class="flex flex-col">
-								{#each r.old.probes as p, i (i)}
-									{#if p.ip}
-										<span>
-											{p.hostname && p.hostname !== p.ip ? p.hostname : p.ip}{#if p.asn > 0}
-												<span class="ml-1 opacity-75">AS{p.asn}</span>{/if}
-										</span>
-									{:else}
-										<span>*</span>
-									{/if}
+								{#each probeLines(r.old) as l (l.id)}
+									<span>
+										{l.label}{#if l.asn > 0}
+											<span class="ml-1 opacity-75">AS{l.asn}</span>{/if}
+									</span>
 								{/each}
 							</div>
 						{/if}
@@ -101,35 +127,34 @@
 					<td class="px-3 py-1.5 whitespace-nowrap">
 						{#if r.new}
 							<div class="flex flex-col">
-								{#each r.new.probes as p, i (i)}
-									{#if p.ip}
-										<span>
-											{p.hostname && p.hostname !== p.ip ? p.hostname : p.ip}{#if p.asn > 0}
-												<span class="ml-1 opacity-75">AS{p.asn}</span>{/if}
-										</span>
-									{:else}
-										<span>*</span>
-									{/if}
+								{#each probeLines(r.new) as l (l.id)}
+									<span>
+										{l.label}{#if l.asn > 0}
+											<span class="ml-1 opacity-75">AS{l.asn}</span>{/if}
+									</span>
 								{/each}
 							</div>
 						{/if}
 					</td>
 					<td class="px-3 py-1.5 text-right whitespace-nowrap">
 						{#if r.status === 'changed'}
-							<div class="flex flex-col items-end line-through opacity-50">
-								{#each r.old?.probes || [] as p, i (i)}
-									<span>{p.ip || p.rttMs > 0 ? float32(p.rttMs) + ' ms' : '*'}</span>
-								{/each}
-							</div>
-							<div class="flex flex-col items-end text-(--color-success)">
-								{#each r.new?.probes || [] as p, i (i)}
-									<span>{p.ip || p.rttMs > 0 ? float32(p.rttMs) + ' ms' : '*'}</span>
-								{/each}
+							<!-- Side by side: each line is level with its responder in the old or new host column. -->
+							<div class="flex items-start justify-end gap-4">
+								<div class="flex flex-col items-end line-through opacity-50">
+									{#each probeLines(r.old!) as l (l.id)}
+										<span>{l.rtts.join(' ') || '*'}</span>
+									{/each}
+								</div>
+								<div class="flex flex-col items-end text-(--color-success)">
+									{#each probeLines(r.new!) as l (l.id)}
+										<span>{l.rtts.join(' ') || '*'}</span>
+									{/each}
+								</div>
 							</div>
 						{:else}
 							<div class="flex flex-col items-end">
-								{#each (r.new || r.old)?.probes || [] as p, i (i)}
-									<span>{p.ip || p.rttMs > 0 ? float32(p.rttMs) + ' ms' : '*'}</span>
+								{#each probeLines((r.new || r.old)!) as l (l.id)}
+									<span>{l.rtts.join(' ') || '*'}</span>
 								{/each}
 							</div>
 						{/if}

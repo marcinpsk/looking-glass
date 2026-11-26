@@ -47,6 +47,12 @@ export default defineConfig(
 						"SvelteMustacheTag[kind='text'] :matches(TemplateLiteral, BinaryExpression[operator='+'], ConditionalExpression) > MemberExpression[property.name=/(Ms|Pct)$/]:not(.test):not(CallExpression *), SvelteMustacheTag[kind='text'] > MemberExpression[property.name=/(Ms|Pct)$/]",
 					message:
 						'An *Ms or *Pct field is a proto float: show it with float32() from $lib/format or toFixed().'
+				},
+				{
+					selector:
+						"BinaryExpression[left.property.name='rttMs'][right.value=0], BinaryExpression[right.property.name='rttMs'][left.value=0]",
+					message:
+						'An RTT of 0 is a reply (Cisco IOS prints "0 msec"): test p.ip or p.hostname for a lost probe.'
 				}
 			]
 		}

@@ -38,7 +38,7 @@
 		<tbody>
 			{#each tp.hops as hop, i (i)}
 				{@const responders = distinctResponders(hop.probes)}
-				{@const allTimedOut = hop.probes.every((p) => !p.ip && !p.hostname && p.rttMs <= 0)}
+				{@const allTimedOut = responders.length === 0}
 				<tr
 					class="border-t"
 					style="border-color: var(--color-border);"
@@ -85,7 +85,7 @@
 					</td>
 					<td class="px-3 py-1.5 text-right align-top" style="color: var(--color-fg-muted);">
 						{#each hop.probes as p, j (j)}
-							{#if p.ip || p.rttMs > 0}
+							{#if p.ip || p.hostname}
 								<span class="ml-2">{float32(p.rttMs)} ms</span>
 							{:else}
 								<span class="ml-2" style="color: var(--color-fg-subtle);">*</span>
